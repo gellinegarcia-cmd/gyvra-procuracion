@@ -45,7 +45,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .rotante-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;font-size:14px}
 .rotante-row:last-child{border-bottom:none}
 .avatar{width:30px;height:30px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1e40af;flex-shrink:0}
-.btn-cancelar{background:none;border:none;color:#c0392b;font-size:11px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:6px;background:#fef2f2;margin-left:4px;flex-shrink:0}
+.btn-cancelar{background:#fef2f2;border:none;color:#c0392b;font-size:11px;font-weight:600;cursor:pointer;padding:4px 8px;border-radius:6px;flex-shrink:0}
 .btn-primary{width:100%;padding:15px;background:#0a2a5e;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}
 .btn-primary:active{opacity:0.85}
 .btn-secondary{width:100%;padding:12px;background:none;color:#0a2a5e;border:1.5px solid #0a2a5e;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
@@ -57,7 +57,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .alert-info{background:#eff6ff;color:#1d4ed8}
 .alert-success{background:#f0fdf4;color:#166534}
 .alert-error{background:#fef2f2;color:#991b1b}
-.alert-warn{background:#fef9c3;color:#854d0e}
 .act-item{display:flex;align-items:flex-start;gap:12px;padding:13px;border:1.5px solid #e5e5e5;border-radius:12px;cursor:pointer;margin-bottom:8px;background:#fff}
 .act-item.done{background:#f0fdf4;border-color:#86efac}
 .act-check{width:24px;height:24px;border-radius:6px;border:2px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
@@ -87,7 +86,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .modal h2{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:6px;text-align:center}
 .modal .subtitulo{font-size:13px;color:#0a2a5e;font-weight:600;text-align:center;margin-bottom:6px}
 .modal .hospital{font-size:12px;color:#999;text-align:center;margin-bottom:20px;line-height:1.5}
-.aviso-cancelar{background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#854d0e;line-height:1.5}
+.aviso{background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#854d0e;line-height:1.5}
 </style>
 </head>
 <body>
@@ -135,9 +134,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 <div id="screen-anotarse" class="screen">
   <p class="section-title">Registrar rotación</p>
   <div id="user-card-anotarse"></div>
-  <div class="aviso-cancelar">
-    ⚠️ <strong>Importante:</strong> Solo agendá una rotación si estás seguro de poder asistir. Cancelar una rotación perjudica a otros compañeros que podrían haber ocupado ese lugar.
-  </div>
+  <div class="aviso">⚠️ <strong>Importante:</strong> Solo agendá una rotación si estás seguro de poder asistir. Cancelar perjudica a otros compañeros que podrían haber ocupado ese lugar.</div>
   <div class="form-group"><label>Semana de rotación</label><select id="select-semana"></select></div>
   <div id="anotarse-alert"></div>
   <button class="btn-primary" onclick="registrarRotacion()">Confirmar rotación</button>
@@ -310,7 +307,7 @@ async function fetchRotaciones(){
   try{
     const r=await fetch(SCRIPT_URL+'?action=getRotaciones');
     const data=await r.json();
-    rotaciones=Array.isArray(data)?data.filter(row=>row[0]):[];
+    rotaciones=Array.isArray(data)?data.filter(row=>row[0]&&row[0]!=='RATING'):[];
   }catch(e){rotaciones=[];}
 }
 
@@ -376,6 +373,11 @@ async function registrarRotacion(){
   const ocupados=rotaciones.filter(r=>String(r[2]).trim()===startKey);
   if(ocupados.length>=10){alertEl.innerHTML='<div class="alert alert-error">Esa semana está completa (10/10).</div>';return;}
   if(ocupados.find(r=>r[0].toLowerCase()===miNombre.toLowerCase())){alertEl.innerHTML='<div class="alert alert-error">Ya estás anotado en esa semana.</div>';return;}
+  const yaEnOtraSemana=rotaciones.find(r=>r[0].toLowerCase()===miNombre.toLowerCase()&&String(r[2]).trim()!==startKey);
+  if(yaEnOtraSemana){
+    alertEl.innerHTML='<div class="alert alert-error">Ya tenés una rotación agendada en '+(yaEnOtraSemana[4]||'')+' ('+formatDateKey(String(yaEnOtraSemana[2]))+' al '+formatDateKey(String(yaEnOtraSemana[3]))+\'). Cancelala primero desde Mi perfil antes de anotarte en otra fecha.</div>';
+    return;
+  }
   alertEl.innerHTML='<div class="alert alert-info">Guardando...</div>';
   const row=[miNombre,miEsp,startKey,endKey,mesNombre,new Date().toISOString()];
   try{
@@ -394,6 +396,7 @@ async function registrarRotacion(){
 
 function renderMisRotaciones(){
   const cont=document.getElementById('mis-rotaciones-lista');
+  cont.innerHTML='<div class="loading">Cargando...</div>';
   fetchRotaciones().then(()=>{
     const mias=rotaciones.filter(r=>r[0]&&r[0].toLowerCase()===miNombre.toLowerCase());
     if(!mias.length){
