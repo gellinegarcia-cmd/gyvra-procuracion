@@ -13,9 +13,10 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f0f2f5;max-width:480px;margin:0 auto;height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f0f2f5;max-width:480px;margin:0 auto}
 .header{background:#0a2a5e;color:#fff;padding:16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
-.logo{width:40px;height:40px;background:#00c2ff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#0a2a5e;flex-shrink:0}
+.logo{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#00c2ff;display:flex;align-items:center;justify-content:center}
+.logo img{width:100%;height:100%;object-fit:cover}
 .header h1{font-size:17px;font-weight:600;color:#fff}
 .header p{font-size:11px;color:#a0c4e8;margin-top:1px}
 .nav{display:flex;background:#fff;border-top:1px solid #e0e0e0;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:10;padding-bottom:env(safe-area-inset-bottom)}
@@ -78,7 +79,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 <body>
 
 <div class="header">
-  <div class="logo">G</div>
+  <div class="logo">
+    <img src="https://i.imgur.com/placeholder.png" onerror="this.parentElement.innerHTML='<span style=\'font-weight:700;font-size:17px;color:#0a2a5e\'>G</span>'" alt="GYVRA"/>
+  </div>
   <div>
     <h1>GYVRA Procuración</h1>
     <p>Hospital Bicentenario · Esteban Echeverría</p>
@@ -285,7 +288,7 @@ async function registrarRotacion(){
   alertEl.innerHTML='<div class="alert alert-info">Guardando...</div>';
   const row=[nombre,esp,startKey,endKey,mesNombre,new Date().toISOString()];
   try{
-    const resp=await fetch(SCRIPT_URL+'?action=addRotacion',{method:'POST',body:JSON.stringify(row),headers:{'Content-Type':'text/plain'}});
+    const resp=await fetch(SCRIPT_URL+'?action=addRotacion&data='+encodeURIComponent(JSON.stringify(row)));
     const data=await resp.json();
     if(data.status==='ok'){
       alertEl.innerHTML='<div class="alert alert-success">✓ Rotación registrada correctamente.</div>';
@@ -352,7 +355,7 @@ async function guardarActividades(){
   const ids=done.map(a=>a.id).join(',');
   const pct=Math.round((done.length/TOTAL)*100);
   try{
-    const resp=await fetch(SCRIPT_URL+'?action=saveActividades',{method:'POST',body:JSON.stringify([nombre,ids,nombresCompletados,pct]),headers:{'Content-Type':'text/plain'}});
+    const resp=await fetch(SCRIPT_URL+'?action=saveActividades&data='+encodeURIComponent(JSON.stringify([nombre,ids,nombresCompletados,pct])));
     const data=await resp.json();
     if(data.status==='ok') alert('Progreso guardado correctamente.');
     else alert('Error al guardar.');
@@ -372,7 +375,7 @@ async function guardarRating(){
   if(!currentRating){alertEl.innerHTML='<div class="alert alert-error">Seleccioná una puntuación.</div>';return;}
   const row=['RATING',nombre,currentRating+' estrellas',comentario,new Date().toISOString()];
   try{
-    await fetch(SCRIPT_URL+'?action=addRotacion',{method:'POST',body:JSON.stringify(row),headers:{'Content-Type':'text/plain'}});
+    await fetch(SCRIPT_URL+'?action=addRotacion&data='+encodeURIComponent(JSON.stringify(row)));
     alertEl.innerHTML='<div class="alert alert-success">✓ Calificación enviada. ¡Gracias!</div>';
   }catch(e){alertEl.innerHTML='<div class="alert alert-error">Error al enviar.</div>';}
 }
