@@ -8,12 +8,12 @@
 <meta name="apple-mobile-web-app-title" content="GYVRA">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a2a5e">
-<title>GYVRA Procuración</title>
+<title>GYVRA Procuracion</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:#f0f2f5;max-width:480px;margin:0 auto}
+body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f0f2f5;max-width:480px;margin:0 auto}
 .header{background:#0a2a5e;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
 .logo{width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .logo img{width:44px;height:44px;object-fit:contain}
@@ -47,7 +47,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .avatar{width:30px;height:30px;border-radius:50%;background:#dbeafe;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#1e40af;flex-shrink:0}
 .btn-cancelar{background:#fef2f2;border:none;color:#c0392b;font-size:11px;font-weight:600;cursor:pointer;padding:4px 8px;border-radius:6px;flex-shrink:0}
 .btn-primary{width:100%;padding:15px;background:#0a2a5e;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}
-.btn-primary:active{opacity:0.85}
 .btn-secondary{width:100%;padding:12px;background:none;color:#0a2a5e;border:1.5px solid #0a2a5e;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 .btn-danger{width:100%;padding:12px;background:none;color:#c0392b;border:1.5px solid #c0392b;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 .form-group{margin-bottom:16px}
@@ -98,7 +97,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
     </div>
     <h2>Bienvenido a la rotacion</h2>
     <p class="subtitulo">Procuracion y Trasplante</p>
-    <p class="hospital">Hospital Bicentenario Esteban Echeverria. Ingresa tu nombre para comenzar. Se guardara en tu celular.</p>
+    <p class="hospital">Hospital Bicentenario Esteban Echeverria. Ingresa tu nombre para comenzar.</p>
     <div class="form-group">
       <label>Tu nombre completo</label>
       <input type="text" id="input-registro-nombre" placeholder="Ej: Maria Gonzalez" autocomplete="name"/>
@@ -107,7 +106,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
       <label>Tu especialidad / institucion</label>
       <input type="text" id="input-registro-esp" placeholder="Ej: Medicina Interna - UBA"/>
     </div>
-    <button class="btn-primary" onclick="guardarRegistro()">Comenzar rotacion</button>
+    <button class="btn-primary" id="btn-comenzar">Comenzar rotacion</button>
   </div>
 </div>
 
@@ -124,9 +123,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 
 <div id="screen-calendario" class="screen active">
   <div class="month-nav">
-    <button onclick="changeMonth(-1)">&#8592;</button>
+    <button id="btn-prev-month">&#8592;</button>
     <h2 id="month-title"></h2>
-    <button onclick="changeMonth(1)">&#8594;</button>
+    <button id="btn-next-month">&#8594;</button>
   </div>
   <div id="weeks-container"><div class="loading">Cargando...</div></div>
 </div>
@@ -134,15 +133,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 <div id="screen-anotarse" class="screen">
   <p class="section-title">Registrar rotacion</p>
   <div id="user-card-anotarse"></div>
-  <div class="aviso">Importante: Solo agenda una rotacion si estas seguro de poder asistir. Cancelar perjudica a otros companeros que podrian haber ocupado ese lugar.</div>
+  <div class="aviso">Importante: Solo agenda una rotacion si estas seguro de poder asistir. Cancelar perjudica a otros companeros.</div>
   <div class="form-group"><label>Semana de rotacion</label><select id="select-semana"></select></div>
   <div id="anotarse-alert"></div>
-  <button class="btn-primary" onclick="registrarRotacion()">Confirmar rotacion</button>
+  <button class="btn-primary" id="btn-confirmar-rotacion">Confirmar rotacion</button>
 </div>
 
 <div id="screen-actividades" class="screen">
   <div id="user-card-actividades"></div>
-  <button class="btn-primary" onclick="cargarActividades()" style="margin-top:0">Cargar mis actividades</button>
+  <button class="btn-primary" id="btn-cargar-act">Cargar mis actividades</button>
   <div id="act-content" style="display:none;margin-top:20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <span style="font-size:14px;color:#555;font-weight:500">Progreso hacia 60%</span>
@@ -151,30 +150,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
     <div class="progress-wrap"><div class="progress-bar" id="act-bar" style="width:0%"></div></div>
     <div id="act-badge" style="margin-bottom:14px"></div>
     <div id="act-list"></div>
-    <button class="btn-primary" onclick="guardarActividades()">Guardar progreso</button>
+    <button class="btn-primary" id="btn-guardar-act">Guardar progreso</button>
   </div>
 </div>
 
 <div id="screen-miperfil" class="screen">
   <p class="section-title">Mi perfil</p>
   <div id="user-card-perfil"></div>
-  <button class="btn-secondary" onclick="cambiarNombre()">Cambiar mi nombre</button>
-  <button class="btn-danger" onclick="cerrarSesion()">Cerrar sesion</button>
+  <button class="btn-secondary" id="btn-cambiar-nombre">Cambiar mi nombre</button>
+  <button class="btn-danger" id="btn-cerrar-sesion">Cerrar sesion</button>
   <div class="separator"></div>
   <p class="section-title">Mis rotaciones</p>
   <div id="mis-rotaciones-lista"></div>
   <div class="separator"></div>
   <p class="section-title">Calificar experiencia</p>
   <p style="font-size:14px;color:#555;margin-bottom:6px;font-weight:500">Como fue tu rotacion?</p>
-  <div class="stars">
-    <span class="star" onclick="setRating(1)">&#9733;</span>
-    <span class="star" onclick="setRating(2)">&#9733;</span>
-    <span class="star" onclick="setRating(3)">&#9733;</span>
-    <span class="star" onclick="setRating(4)">&#9733;</span>
-    <span class="star" onclick="setRating(5)">&#9733;</span>
-  </div>
+  <div class="stars" id="stars-container"></div>
   <div class="form-group" style="margin-top:12px"><label>Comentario (opcional)</label><input type="text" id="input-comentario" placeholder="Que destacarias?"/></div>
-  <button class="btn-primary" onclick="guardarRating()">Enviar calificacion</button>
+  <button class="btn-primary" id="btn-enviar-rating">Enviar calificacion</button>
   <div id="rating-alert" style="margin-top:10px"></div>
   <div class="separator"></div>
   <div class="hospital-info">
@@ -186,10 +179,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 </div>
 
 <div class="nav">
-  <button class="nav-btn active" onclick="showScreen('calendario')" id="nav-calendario"><i class="ti ti-calendar"></i>Calendario</button>
-  <button class="nav-btn" onclick="showScreen('anotarse')" id="nav-anotarse"><i class="ti ti-user-plus"></i>Anotarse</button>
-  <button class="nav-btn" onclick="showScreen('actividades')" id="nav-actividades"><i class="ti ti-checklist"></i>Actividades</button>
-  <button class="nav-btn" onclick="showScreen('miperfil')" id="nav-miperfil"><i class="ti ti-user"></i>Mi perfil</button>
+  <button class="nav-btn active" id="nav-calendario"><i class="ti ti-calendar"></i>Calendario</button>
+  <button class="nav-btn" id="nav-anotarse"><i class="ti ti-user-plus"></i>Anotarse</button>
+  <button class="nav-btn" id="nav-actividades"><i class="ti ti-checklist"></i>Actividades</button>
+  <button class="nav-btn" id="nav-miperfil"><i class="ti ti-user"></i>Mi perfil</button>
 </div>
 
 <script>
@@ -197,18 +190,18 @@ var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxiRC2R91DFl75E5rNU0wW
 var ACTIVIDADES = [
   {id:"a1",texto:"Cargar en el Sintra"},
   {id:"a2",texto:"Completar documentacion"},
-  {id:"a3",texto:"Diagnostico y certificacion Muerte encefalica",grupo:true},
+  {id:"a3",texto:"Diagnostico ME",grupo:true},
   {id:"a4",texto:"Examenes clinicos",sub:true},
-  {id:"a5",texto:"Doppler transcraneal criterios de ME",sub:true},
+  {id:"a5",texto:"Doppler transcraneal ME",sub:true},
   {id:"a6",texto:"Electroencefalograma",sub:true},
   {id:"a7",texto:"Test de apnea",sub:true},
   {id:"a8",texto:"Test de atropina",sub:true},
   {id:"a9",texto:"Antropometria",sub:true},
   {id:"a10",texto:"Neuromonitoreo",grupo:true},
-  {id:"a11",texto:"Doppler en manejo de HTE",sub:true},
+  {id:"a11",texto:"Doppler HTE",sub:true},
   {id:"a12",texto:"Ecografia Duplex transcraneal",sub:true},
   {id:"a13",texto:"Nervio optico",sub:true},
-  {id:"a14",texto:"Adecuacion al esfuerzo terapeutico"},
+  {id:"a14",texto:"Adecuacion esfuerzo terapeutico"},
   {id:"a15",texto:"Comunicacion de Muerte"},
   {id:"a16",texto:"Comunicacion de donacion"},
   {id:"a17",texto:"Ablacion de Globos Oculares"}
@@ -221,75 +214,13 @@ var currentYear = new Date().getFullYear();
 var rotaciones = [];
 var actState = {};
 var currentRating = 0;
-var miNombre = '';
-var miEsp = '';
+var miNombre = "";
+var miEsp = "";
 
-function init(){
-  miNombre = localStorage.getItem('gyvra_nombre') || '';
-  miEsp = localStorage.getItem('gyvra_esp') || '';
-  if(miNombre){
-    document.getElementById('overlay-registro').style.display = 'none';
-    actualizarUI();
-    renderCalendario();
-    populateSemanas();
-  }
-}
-
-function guardarRegistro(){
-  var nombre = document.getElementById('input-registro-nombre').value.trim();
-  var esp = document.getElementById('input-registro-esp').value.trim();
-  if(!nombre){alert('Ingresa tu nombre.');return;}
-  localStorage.setItem('gyvra_nombre', nombre);
-  localStorage.setItem('gyvra_esp', esp);
-  miNombre = nombre;
-  miEsp = esp;
-  document.getElementById('overlay-registro').style.display = 'none';
-  actualizarUI();
-  renderCalendario();
-  populateSemanas();
-}
-
-function actualizarUI(){
-  document.getElementById('header-user').textContent = miNombre;
-  var ini = miNombre.split(' ').map(function(p){return p[0];}).slice(0,2).join('').toUpperCase();
-  var cardHTML = '<div class="user-card"><div class="user-avatar">'+ini+'</div><div class="user-info"><p>'+miNombre+'</p><span>'+miEsp+'</span></div></div>';
-  document.getElementById('user-card-anotarse').innerHTML = cardHTML;
-  document.getElementById('user-card-actividades').innerHTML = cardHTML;
-  document.getElementById('user-card-perfil').innerHTML = cardHTML;
-}
-
-function cambiarNombre(){
-  if(confirm('Queres cambiar tu nombre?')){
-    localStorage.removeItem('gyvra_nombre');
-    localStorage.removeItem('gyvra_esp');
-    location.reload();
-  }
-}
-
-function cerrarSesion(){
-  if(confirm('Cerrar sesion? Vas a tener que ingresar tu nombre de nuevo.')){
-    localStorage.clear();
-    location.reload();
-  }
-}
-
-function showScreen(name){
-  var screens = document.querySelectorAll('.screen');
-  for(var i=0;i<screens.length;i++) screens[i].classList.remove('active');
-  var btns = document.querySelectorAll('.nav-btn');
-  for(var i=0;i<btns.length;i++) btns[i].classList.remove('active');
-  document.getElementById('screen-'+name).classList.add('active');
-  document.getElementById('nav-'+name).classList.add('active');
-  window.scrollTo(0,0);
-  if(name==='calendario') renderCalendario();
-  if(name==='anotarse') populateSemanas();
-  if(name==='miperfil') renderMisRotaciones();
-}
-
-function pad(n){return n<10?'0'+n:String(n);}
-function dateKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
-function formatDate(d){return d.getDate()+'/'+(d.getMonth()+1);}
-function formatDateKey(k){if(!k)return '';var p=k.split('-');return p[2]+'/'+p[1];}
+function pad(n){return n<10?"0"+n:""+n;}
+function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function formatDate(d){return d.getDate()+"/"+(d.getMonth()+1);}
+function formatDateKey(k){if(!k)return "";var p=k.split("-");return p[2]+"/"+p[1];}
 
 function getWeeksOfMonth(year,month){
   var weeks=[];
@@ -306,87 +237,102 @@ function getWeeksOfMonth(year,month){
 }
 
 function fetchRotaciones(){
-  return fetch(SCRIPT_URL+'?action=getRotaciones')
+  return fetch(SCRIPT_URL+"?action=getRotaciones")
     .then(function(r){return r.json();})
     .then(function(data){
-      rotaciones = Array.isArray(data) ? data.filter(function(row){return row[0] && row[0]!=='RATING';}) : [];
+      rotaciones=Array.isArray(data)?data.filter(function(row){return row[0]&&row[0]!=="RATING";}):[];
     })
     .catch(function(){rotaciones=[];});
 }
 
+function actualizarUI(){
+  document.getElementById("header-user").textContent=miNombre;
+  var ini=miNombre.split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
+  var card='<div class="user-card"><div class="user-avatar">'+ini+'</div><div class="user-info"><p>'+miNombre+'</p><span>'+miEsp+'</span></div></div>';
+  document.getElementById("user-card-anotarse").innerHTML=card;
+  document.getElementById("user-card-actividades").innerHTML=card;
+  document.getElementById("user-card-perfil").innerHTML=card;
+}
+
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(function(s){s.classList.remove("active");});
+  document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.remove("active");});
+  document.getElementById("screen-"+name).classList.add("active");
+  document.getElementById("nav-"+name).classList.add("active");
+  window.scrollTo(0,0);
+  if(name==="calendario") renderCalendario();
+  if(name==="anotarse") populateSemanas();
+  if(name==="miperfil") renderMisRotaciones();
+}
+
 function renderCalendario(){
-  var months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  document.getElementById('month-title').textContent = months[currentMonth]+' '+currentYear;
-  var container = document.getElementById('weeks-container');
-  container.innerHTML = '<div class="loading">Cargando...</div>';
+  var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  document.getElementById("month-title").textContent=months[currentMonth]+" "+currentYear;
+  var container=document.getElementById("weeks-container");
+  container.innerHTML='<div class="loading">Cargando...</div>';
   fetchRotaciones().then(function(){
-    var weeks = getWeeksOfMonth(currentYear,currentMonth);
-    container.innerHTML = '';
+    var weeks=getWeeksOfMonth(currentYear,currentMonth);
+    container.innerHTML="";
     weeks.forEach(function(week,i){
-      var key = dateKey(week.start);
-      var ocupados = rotaciones.filter(function(r){return String(r[2]).trim()===key;});
-      var n = ocupados.length;
-      var lleno = n>=10;
-      var dots = '';
-      for(var j=0;j<10;j++) dots+='<div class="dot '+(j<n?'filled':'')+'"></div>';
-      var rows = '';
+      var key=dateKey(week.start);
+      var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===key;});
+      var n=ocupados.length;
+      var lleno=n>=10;
+      var dots="";
+      for(var j=0;j<10;j++) dots+='<div class="dot '+(j<n?"filled":"")+'" ></div>';
+      var rows="";
       ocupados.forEach(function(r){
-        var ini = r[0].split(' ').map(function(p){return p[0];}).slice(0,2).join('').toUpperCase();
-        var esMio = r[0].toLowerCase()===miNombre.toLowerCase();
-        rows+='<div class="rotante-row"><div class="avatar" style="'+(esMio?'background:#0a2a5e;color:#fff':'')+'">'+ini+'</div><span style="font-weight:500'+(esMio?';color:#0a2a5e':'')+'">'+r[0]+(esMio?' (yo)':'')+'</span><span style="margin-left:auto;font-size:12px;color:#999">'+(r[1]||'')+'</span></div>';
+        var ini=r[0].split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
+        var esMio=r[0].toLowerCase()===miNombre.toLowerCase();
+        rows+='<div class="rotante-row"><div class="avatar" style="'+(esMio?"background:#0a2a5e;color:#fff":"")+'" >'+ini+'</div><span style="font-weight:500'+(esMio?";color:#0a2a5e":"")+'" >'+r[0]+(esMio?" (yo)":"")+'</span><span style="margin-left:auto;font-size:12px;color:#999">'+(r[1]||"")+'</span></div>';
       });
-      var card = document.createElement('div');
-      card.className = 'week-card';
-      card.innerHTML = '<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+' - '+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?'cupos-full':'cupos-ok')+'">'+n+'/10</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
+      var card=document.createElement("div");
+      card.className="week-card";
+      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+" - "+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/10</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
       container.appendChild(card);
     });
   });
 }
 
-function changeMonth(dir){
-  currentMonth+=dir;
-  if(currentMonth>11){currentMonth=0;currentYear++;}
-  if(currentMonth<0){currentMonth=11;currentYear--;}
-  renderCalendario();
-}
-
 function populateSemanas(){
-  var sel = document.getElementById('select-semana');
-  sel.innerHTML = '';
-  var months=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var sel=document.getElementById("select-semana");
+  sel.innerHTML="";
+  var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   for(var m=0;m<12;m++){
     getWeeksOfMonth(currentYear,m).forEach(function(week,i){
-      var opt = document.createElement('option');
-      opt.value = dateKey(week.start)+'|'+dateKey(week.end)+'|'+months[m];
-      opt.textContent = months[m]+' - Semana '+(i+1)+' ('+formatDate(week.start)+'-'+formatDate(week.end)+')';
+      var opt=document.createElement("option");
+      opt.value=dateKey(week.start)+"|"+dateKey(week.end)+"|"+months[m];
+      opt.textContent=months[m]+" - Semana "+(i+1)+" ("+formatDate(week.start)+"-"+formatDate(week.end)+")";
       sel.appendChild(opt);
     });
   }
 }
 
 function registrarRotacion(){
-  var semVal = document.getElementById('select-semana').value;
-  var alertEl = document.getElementById('anotarse-alert');
-  var parts = semVal.split('|');
-  var startKey = parts[0];
-  var endKey = parts[1];
-  var mesNombre = parts[2];
-  alertEl.innerHTML = '<div class="alert alert-info">Verificando cupos...</div>';
+  var semVal=document.getElementById("select-semana").value;
+  var alertEl=document.getElementById("anotarse-alert");
+  var parts=semVal.split("|");
+  var startKey=parts[0];
+  var endKey=parts[1];
+  var mesNombre=parts[2];
+  alertEl.innerHTML='<div class="alert alert-info">Verificando cupos...</div>';
   fetchRotaciones().then(function(){
-    var ocupados = rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});
+    var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});
     if(ocupados.length>=10){alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa (10/10).</div>';return;}
-    if(ocupados.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase();}).length>0){alertEl.innerHTML='<div class="alert alert-error">Ya estas anotado en esa semana.</div>';return;}
-    var yaEnOtra = rotaciones.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase() && String(r[2]).trim()!==startKey;});
+    var yaEstaEnEsta=ocupados.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase();});
+    if(yaEstaEnEsta.length>0){alertEl.innerHTML='<div class="alert alert-error">Ya estas anotado en esa semana.</div>';return;}
+    var yaEnOtra=rotaciones.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase()&&String(r[2]).trim()!==startKey;});
     if(yaEnOtra.length>0){
-      alertEl.innerHTML='<div class="alert alert-error">Ya tenes una rotacion agendada en '+(yaEnOtra[0][4]||'')+' ('+formatDateKey(String(yaEnOtra[0][2]))+' al '+formatDateKey(String(yaEnOtra[0][3]))+\'). Cancelala primero desde Mi perfil.</div>';
+      var msg="Ya tenes una rotacion en "+(yaEnOtra[0][4]||"")+" ("+formatDateKey(String(yaEnOtra[0][2]))+" al "+formatDateKey(String(yaEnOtra[0][3]))+"). Cancelala primero desde Mi perfil.";
+      alertEl.innerHTML='<div class="alert alert-error">'+msg+'</div>';
       return;
     }
-    alertEl.innerHTML = '<div class="alert alert-info">Guardando...</div>';
-    var row = [miNombre,miEsp,startKey,endKey,mesNombre,new Date().toISOString()];
-    fetch(SCRIPT_URL+'?action=addRotacion&data='+encodeURIComponent(JSON.stringify(row)))
+    alertEl.innerHTML='<div class="alert alert-info">Guardando...</div>';
+    var row=[miNombre,miEsp,startKey,endKey,mesNombre,new Date().toISOString()];
+    fetch(SCRIPT_URL+"?action=addRotacion&data="+encodeURIComponent(JSON.stringify(row)))
       .then(function(r){return r.json();})
       .then(function(data){
-        if(data.status==='ok'){
+        if(data.status==="ok"){
           alertEl.innerHTML='<div class="alert alert-success">Rotacion registrada correctamente.</div>';
           fetchRotaciones();
         }else{
@@ -398,50 +344,59 @@ function registrarRotacion(){
 }
 
 function renderMisRotaciones(){
-  var cont = document.getElementById('mis-rotaciones-lista');
-  cont.innerHTML = '<div class="loading">Cargando...</div>';
+  var cont=document.getElementById("mis-rotaciones-lista");
+  cont.innerHTML='<div class="loading">Cargando...</div>';
   fetchRotaciones().then(function(){
-    var mias = rotaciones.filter(function(r){return r[0] && r[0].toLowerCase()===miNombre.toLowerCase();});
+    var mias=rotaciones.filter(function(r){return r[0]&&r[0].toLowerCase()===miNombre.toLowerCase();});
     if(!mias.length){
-      cont.innerHTML = '<p style="font-size:13px;color:#999;text-align:center;padding:12px">No tenes rotaciones registradas.</p>';
+      cont.innerHTML='<p style="font-size:13px;color:#999;text-align:center;padding:12px">No tenes rotaciones registradas.</p>';
       return;
     }
-    cont.innerHTML = mias.map(function(r){
-      var startKey = String(r[2]).trim();
-      var endKey = String(r[3]).trim();
-      return '<div class="week-card" style="margin-bottom:10px"><div class="week-header" style="display:flex;justify-content:space-between;align-items:center"><div><div class="week-title" style="font-size:14px">'+(r[4]||'')+'</div><div class="week-dates">'+formatDateKey(startKey)+' al '+formatDateKey(endKey)+'</div></div><button class="btn-cancelar" onclick="cancelarRotacion(this, \''+startKey+'\')">Cancelar</button></div></div>';
-    }).join('');
+    var html="";
+    mias.forEach(function(r,idx){
+      var sk=String(r[2]).trim();
+      var ek=String(r[3]).trim();
+      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header" style="display:flex;justify-content:space-between;align-items:center"><div><div class="week-title" style="font-size:14px">'+(r[4]||"")+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div><button class="btn-cancelar" data-sk="'+sk+'">Cancelar</button></div></div>';
+    });
+    cont.innerHTML=html;
+    cont.querySelectorAll(".btn-cancelar").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        cancelarRotacion(btn.getAttribute("data-sk"));
+      });
+    });
   });
 }
 
-function cancelarRotacion(btn, startKey){
-  if(!confirm('Estas seguro que queres cancelar esta rotacion? Cancelar perjudica a otros companeros.')){return;}
-  fetch(SCRIPT_URL+'?action=cancelarRotacion&data='+encodeURIComponent(JSON.stringify([miNombre,startKey])))
+function cancelarRotacion(startKey){
+  if(!confirm("Estas seguro que queres cancelar esta rotacion? Cancelar perjudica a otros companeros.")){return;}
+  fetch(SCRIPT_URL+"?action=cancelarRotacion&data="+encodeURIComponent(JSON.stringify([miNombre,startKey])))
     .then(function(r){return r.json();})
     .then(function(data){
-      if(data.status==='ok'){
-        alert('Rotacion cancelada correctamente.');
-        fetchRotaciones().then(function(){
-          renderMisRotaciones();
-          renderCalendario();
-        });
+      if(data.status==="ok"){
+        alert("Rotacion cancelada correctamente.");
+        fetchRotaciones().then(function(){renderMisRotaciones();renderCalendario();});
       }else{
-        alert('No se encontro la rotacion.');
+        alert("No se encontro la rotacion.");
       }
     })
-    .catch(function(e){alert('Error: '+e.message);});
+    .catch(function(e){alert("Error: "+e.message);});
 }
 
 function cargarActividades(){
-  document.getElementById('act-content').style.display = 'block';
-  fetch(SCRIPT_URL+'?action=getActividades')
+  document.getElementById("act-content").style.display="block";
+  fetch(SCRIPT_URL+"?action=getActividades")
     .then(function(r){return r.json();})
     .then(function(data){
-      actState = {};
-      var fila = Array.isArray(data) ? data.filter(function(row){return row[0] && row[0].toLowerCase()===miNombre.toLowerCase();})[0] : null;
-      if(fila && fila[1]){
-        var guardados = fila[1].toString().split(',').map(function(s){return s.trim();});
-        LEAFS.forEach(function(a){if(guardados.indexOf(a.id)>=0 || guardados.indexOf(a.texto)>=0) actState[a.id]=true;});
+      actState={};
+      var fila=null;
+      if(Array.isArray(data)){
+        for(var i=0;i<data.length;i++){
+          if(data[i][0]&&data[i][0].toLowerCase()===miNombre.toLowerCase()){fila=data[i];break;}
+        }
+      }
+      if(fila&&fila[1]){
+        var guardados=fila[1].toString().split(",").map(function(s){return s.trim();});
+        LEAFS.forEach(function(a){if(guardados.indexOf(a.id)>=0||guardados.indexOf(a.texto)>=0) actState[a.id]=true;});
       }
       renderActividades();
     })
@@ -449,64 +404,134 @@ function cargarActividades(){
 }
 
 function renderActividades(){
-  var list = document.getElementById('act-list');
-  list.innerHTML = '';
+  var list=document.getElementById("act-list");
+  list.innerHTML="";
   ACTIVIDADES.forEach(function(act){
     if(act.grupo){
-      var d = document.createElement('div');
-      d.className = 'grupo-titulo';
-      d.textContent = act.texto;
+      var d=document.createElement("div");
+      d.className="grupo-titulo";
+      d.textContent=act.texto;
       list.appendChild(d);
     }else{
-      var item = document.createElement('div');
-      item.className = 'act-item'+(actState[act.id]?' done':'');
-      var indent = act.sub ? 'padding-left:14px;border-left:3px solid #d1fae5;' : '';
-      item.innerHTML = '<div class="act-check">'+(actState[act.id]?'&#10003;':'')+'</div><div style="'+indent+'"><div class="act-text">'+act.texto+'</div></div>';
-      (function(id){item.onclick=function(){actState[id]=!actState[id];renderActividades();};})(act.id);
+      var item=document.createElement("div");
+      item.className="act-item"+(actState[act.id]?" done":"");
+      var indent=act.sub?"padding-left:14px;border-left:3px solid #d1fae5;":"";
+      item.innerHTML='<div class="act-check">'+(actState[act.id]?"&#10003;":"")+'</div><div style="'+indent+'"><div class="act-text">'+act.texto+'</div></div>';
+      (function(id){item.addEventListener("click",function(){actState[id]=!actState[id];renderActividades();});})(act.id);
       list.appendChild(item);
     }
   });
-  var done = LEAFS.filter(function(a){return actState[a.id];}).length;
-  var pct = Math.round((done/TOTAL)*100);
-  document.getElementById('act-pct').textContent = pct+'%';
-  var bar = document.getElementById('act-bar');
-  bar.style.width = pct+'%';
-  bar.className = 'progress-bar'+(pct>=META*100?' ok':'');
-  var badge = document.getElementById('act-badge');
-  badge.innerHTML = pct>=META*100 ? '<span class="badge badge-ok">Cumple el 60% requerido</span>' : '<span class="badge badge-warn">'+done+'/'+TOTAL+' - Faltan '+(Math.ceil(TOTAL*META)-done)+' para el 60%</span>';
+  var done=LEAFS.filter(function(a){return actState[a.id];}).length;
+  var pct=Math.round((done/TOTAL)*100);
+  document.getElementById("act-pct").textContent=pct+"%";
+  var bar=document.getElementById("act-bar");
+  bar.style.width=pct+"%";
+  bar.className="progress-bar"+(pct>=META*100?" ok":"");
+  var badge=document.getElementById("act-badge");
+  badge.innerHTML=pct>=META*100?'<span class="badge badge-ok">Cumple el 60% requerido</span>':'<span class="badge badge-warn">'+done+"/"+TOTAL+" - Faltan "+(Math.ceil(TOTAL*META)-done)+" para el 60%</span>";
 }
 
 function guardarActividades(){
-  var done = LEAFS.filter(function(a){return actState[a.id];});
-  var nombresCompletados = done.map(function(a){return a.texto;}).join(', ');
-  var ids = done.map(function(a){return a.id;}).join(',');
-  var pct = Math.round((done.length/TOTAL)*100);
-  fetch(SCRIPT_URL+'?action=saveActividades&data='+encodeURIComponent(JSON.stringify([miNombre,ids,nombresCompletados,pct])))
+  var done=LEAFS.filter(function(a){return actState[a.id];});
+  var nombres=done.map(function(a){return a.texto;}).join(", ");
+  var ids=done.map(function(a){return a.id;}).join(",");
+  var pct=Math.round((done.length/TOTAL)*100);
+  fetch(SCRIPT_URL+"?action=saveActividades&data="+encodeURIComponent(JSON.stringify([miNombre,ids,nombres,pct])))
     .then(function(r){return r.json();})
     .then(function(data){
-      if(data.status==='ok') alert('Progreso guardado correctamente.');
-      else alert('Error al guardar.');
+      if(data.status==="ok") alert("Progreso guardado correctamente.");
+      else alert("Error al guardar.");
     })
-    .catch(function(e){alert('Error: '+e.message);});
+    .catch(function(e){alert("Error: "+e.message);});
 }
 
 function setRating(n){
-  currentRating = n;
-  var stars = document.querySelectorAll('.star');
-  for(var i=0;i<stars.length;i++) stars[i].classList.toggle('active',i<n);
+  currentRating=n;
+  document.querySelectorAll(".star").forEach(function(s,i){s.classList.toggle("active",i<n);});
 }
 
 function guardarRating(){
-  var comentario = document.getElementById('input-comentario').value.trim();
-  var alertEl = document.getElementById('rating-alert');
+  var comentario=document.getElementById("input-comentario").value.trim();
+  var alertEl=document.getElementById("rating-alert");
   if(!currentRating){alertEl.innerHTML='<div class="alert alert-error">Selecciona una puntuacion.</div>';return;}
-  var row = ['RATING',miNombre,currentRating+' estrellas',comentario,new Date().toISOString()];
-  fetch(SCRIPT_URL+'?action=addRotacion&data='+encodeURIComponent(JSON.stringify(row)))
+  var row=["RATING",miNombre,currentRating+" estrellas",comentario,new Date().toISOString()];
+  fetch(SCRIPT_URL+"?action=addRotacion&data="+encodeURIComponent(JSON.stringify(row)))
     .then(function(){alertEl.innerHTML='<div class="alert alert-success">Calificacion enviada. Gracias!</div>';})
     .catch(function(){alertEl.innerHTML='<div class="alert alert-error">Error al enviar.</div>';});
 }
 
-init();
+function buildStars(){
+  var cont=document.getElementById("stars-container");
+  cont.innerHTML="";
+  for(var i=1;i<=5;i++){
+    var s=document.createElement("span");
+    s.className="star";
+    s.innerHTML="&#9733;";
+    (function(n){s.addEventListener("click",function(){setRating(n);});})(i);
+    cont.appendChild(s);
+  }
+}
+
+document.addEventListener("DOMContentLoaded",function(){
+  buildStars();
+
+  document.getElementById("btn-comenzar").addEventListener("click",function(){
+    var nombre=document.getElementById("input-registro-nombre").value.trim();
+    var esp=document.getElementById("input-registro-esp").value.trim();
+    if(!nombre){alert("Ingresa tu nombre.");return;}
+    localStorage.setItem("gyvra_nombre",nombre);
+    localStorage.setItem("gyvra_esp",esp);
+    miNombre=nombre;
+    miEsp=esp;
+    document.getElementById("overlay-registro").style.display="none";
+    actualizarUI();
+    renderCalendario();
+    populateSemanas();
+  });
+
+  document.getElementById("btn-cambiar-nombre").addEventListener("click",function(){
+    if(confirm("Queres cambiar tu nombre?")){
+      localStorage.removeItem("gyvra_nombre");
+      localStorage.removeItem("gyvra_esp");
+      location.reload();
+    }
+  });
+
+  document.getElementById("btn-cerrar-sesion").addEventListener("click",function(){
+    if(confirm("Cerrar sesion? Vas a tener que ingresar tu nombre de nuevo.")){
+      localStorage.clear();
+      location.reload();
+    }
+  });
+
+  document.getElementById("btn-confirmar-rotacion").addEventListener("click",registrarRotacion);
+  document.getElementById("btn-cargar-act").addEventListener("click",cargarActividades);
+  document.getElementById("btn-guardar-act").addEventListener("click",guardarActividades);
+  document.getElementById("btn-enviar-rating").addEventListener("click",guardarRating);
+  document.getElementById("btn-prev-month").addEventListener("click",function(){changeMonth(-1);});
+  document.getElementById("btn-next-month").addEventListener("click",function(){changeMonth(1);});
+
+  document.getElementById("nav-calendario").addEventListener("click",function(){showScreen("calendario");});
+  document.getElementById("nav-anotarse").addEventListener("click",function(){showScreen("anotarse");});
+  document.getElementById("nav-actividades").addEventListener("click",function(){showScreen("actividades");});
+  document.getElementById("nav-miperfil").addEventListener("click",function(){showScreen("miperfil");});
+
+  miNombre=localStorage.getItem("gyvra_nombre")||"";
+  miEsp=localStorage.getItem("gyvra_esp")||"";
+  if(miNombre){
+    document.getElementById("overlay-registro").style.display="none";
+    actualizarUI();
+    renderCalendario();
+    populateSemanas();
+  }
+});
+
+function changeMonth(dir){
+  currentMonth+=dir;
+  if(currentMonth>11){currentMonth=0;currentYear++;}
+  if(currentMonth<0){currentMonth=11;currentYear--;}
+  renderCalendario();
+}
 </script>
 </body>
 </html>
