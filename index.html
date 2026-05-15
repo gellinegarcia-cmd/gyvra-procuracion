@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="GYVRA">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a2a5e">
-<link rel="manifest" href="manifest.json">  
+<link rel="manifest" href="manifest.json">
 <title>GYVRA Procuracion</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
@@ -210,8 +210,11 @@ var ACTIVIDADES = [
 var LEAFS = ACTIVIDADES.filter(function(a){return !a.grupo;});
 var TOTAL = LEAFS.length;
 var META = 0.6;
-var currentMonth = new Date().getMonth();
-var currentYear = new Date().getFullYear();
+var hoy = new Date();
+var mesInicial = hoy.getMonth();
+var anioInicial = hoy.getFullYear();
+var currentMonth = mesInicial;
+var currentYear = anioInicial;
 var rotaciones = [];
 var actState = {};
 var currentRating = 0;
@@ -269,6 +272,9 @@ function showScreen(name){
 function renderCalendario(){
   var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   document.getElementById("month-title").textContent=months[currentMonth]+" "+currentYear;
+  var btnPrev=document.getElementById("btn-prev-month");
+  btnPrev.style.opacity=(currentMonth===mesInicial&&currentYear===anioInicial)?"0.3":"1";
+  btnPrev.disabled=(currentMonth===mesInicial&&currentYear===anioInicial);
   var container=document.getElementById("weeks-container");
   container.innerHTML='<div class="loading">Cargando...</div>';
   fetchRotaciones().then(function(){
@@ -295,12 +301,20 @@ function renderCalendario(){
   });
 }
 
+function changeMonth(dir){
+  if(dir===-1&&currentMonth===mesInicial&&currentYear===anioInicial) return;
+  currentMonth+=dir;
+  if(currentMonth>11){currentMonth=0;currentYear++;}
+  if(currentMonth<0){currentMonth=11;currentYear--;}
+  renderCalendario();
+}
+
 function populateSemanas(){
   var sel=document.getElementById("select-semana");
   sel.innerHTML="";
   var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  for(var m=0;m<12;m++){
-    getWeeksOfMonth(currentYear,m).forEach(function(week,i){
+  for(var m=mesInicial;m<12;m++){
+    getWeeksOfMonth(anioInicial,m).forEach(function(week,i){
       var opt=document.createElement("option");
       opt.value=dateKey(week.start)+"|"+dateKey(week.end)+"|"+months[m];
       opt.textContent=months[m]+" - Semana "+(i+1)+" ("+formatDate(week.start)+"-"+formatDate(week.end)+")";
@@ -354,16 +368,14 @@ function renderMisRotaciones(){
       return;
     }
     var html="";
-    mias.forEach(function(r,idx){
+    mias.forEach(function(r){
       var sk=String(r[2]).trim();
       var ek=String(r[3]).trim();
       html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header" style="display:flex;justify-content:space-between;align-items:center"><div><div class="week-title" style="font-size:14px">'+(r[4]||"")+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div><button class="btn-cancelar" data-sk="'+sk+'">Cancelar</button></div></div>';
     });
     cont.innerHTML=html;
     cont.querySelectorAll(".btn-cancelar").forEach(function(btn){
-      btn.addEventListener("click",function(){
-        cancelarRotacion(btn.getAttribute("data-sk"));
-      });
+      btn.addEventListener("click",function(){cancelarRotacion(btn.getAttribute("data-sk"));});
     });
   });
 }
@@ -511,7 +523,6 @@ document.addEventListener("DOMContentLoaded",function(){
   document.getElementById("btn-enviar-rating").addEventListener("click",guardarRating);
   document.getElementById("btn-prev-month").addEventListener("click",function(){changeMonth(-1);});
   document.getElementById("btn-next-month").addEventListener("click",function(){changeMonth(1);});
-
   document.getElementById("nav-calendario").addEventListener("click",function(){showScreen("calendario");});
   document.getElementById("nav-anotarse").addEventListener("click",function(){showScreen("anotarse");});
   document.getElementById("nav-actividades").addEventListener("click",function(){showScreen("actividades");});
@@ -526,13 +537,6 @@ document.addEventListener("DOMContentLoaded",function(){
     populateSemanas();
   }
 });
-
-function changeMonth(dir){
-  currentMonth+=dir;
-  if(currentMonth>11){currentMonth=0;currentYear++;}
-  if(currentMonth<0){currentMonth=11;currentYear--;}
-  renderCalendario();
-}
 </script>
 </body>
 </html>
