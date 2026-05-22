@@ -50,6 +50,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .btn-primary{width:100%;padding:15px;background:#0a2a5e;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px}
 .btn-secondary{width:100%;padding:12px;background:none;color:#0a2a5e;border:1.5px solid #0a2a5e;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
 .btn-danger{width:100%;padding:12px;background:none;color:#c0392b;border:1.5px solid #c0392b;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px}
+.btn-ir{width:100%;padding:12px;background:#00c2ff;color:#0a2a5e;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px}
 .form-group{margin-bottom:16px}
 .form-group label{display:block;font-size:13px;font-weight:600;color:#555;margin-bottom:7px}
 .form-group input,.form-group select{width:100%;padding:14px;border:1.5px solid #e0e0e0;border-radius:12px;font-size:16px;background:#fff;color:#1a1a1a;-webkit-appearance:none}
@@ -87,6 +88,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .modal .subtitulo{font-size:13px;color:#0a2a5e;font-weight:600;text-align:center;margin-bottom:6px}
 .modal .hospital{font-size:12px;color:#999;text-align:center;margin-bottom:20px;line-height:1.5}
 .aviso{background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#854d0e;line-height:1.5}
+.info-calendario{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#1e40af;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+.info-calendario i{font-size:20px;flex-shrink:0;margin-top:1px}
+.hint-semana{font-size:12px;color:#999;margin-top:6px;margin-bottom:2px;display:flex;align-items:center;gap:4px}
+.hint-semana i{font-size:14px}
 </style>
 </head>
 <body>
@@ -123,19 +128,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 </div>
 
 <div id="screen-calendario" class="screen active">
+  <div class="info-calendario">
+    <i class="ti ti-info-circle" aria-hidden="true"></i>
+    <div>
+      <strong>Vista de disponibilidad</strong><br>
+      Aca podes ver los dias disponibles y reservados. Para anotarte en una rotacion, toca el boton <strong>Anotarse</strong> en el menu de abajo.
+    </div>
+  </div>
   <div class="month-nav">
     <button id="btn-prev-month">&#8592;</button>
     <h2 id="month-title"></h2>
     <button id="btn-next-month">&#8594;</button>
   </div>
   <div id="weeks-container"><div class="loading">Cargando...</div></div>
+  <button class="btn-ir" id="btn-ir-anotarse">Ir a reservar mi rotacion &#8594;</button>
 </div>
 
 <div id="screen-anotarse" class="screen">
   <p class="section-title">Registrar rotacion</p>
   <div id="user-card-anotarse"></div>
   <div class="aviso">Importante: Solo agenda una rotacion si estas seguro de poder asistir. Cancelar perjudica a otros companeros.</div>
-  <div class="form-group"><label>Semana de rotacion</label><select id="select-semana"></select></div>
+  <div class="form-group">
+    <label>Semana de rotacion</label>
+    <div class="hint-semana"><i class="ti ti-arrows-up-down" aria-hidden="true"></i> Desliza para ver todas las fechas disponibles</div>
+    <select id="select-semana" size="4" style="height:auto;padding:0"></select>
+  </div>
   <div id="anotarse-alert"></div>
   <button class="btn-primary" id="btn-confirmar-rotacion">Confirmar rotacion</button>
 </div>
@@ -324,7 +341,9 @@ function populateSemanas(){
 }
 
 function registrarRotacion(){
-  var semVal=document.getElementById("select-semana").value;
+  var sel=document.getElementById("select-semana");
+  var semVal=sel.value;
+  if(!semVal){alert("Selecciona una semana.");return;}
   var alertEl=document.getElementById("anotarse-alert");
   var parts=semVal.split("|");
   var startKey=parts[0];
@@ -502,6 +521,7 @@ document.addEventListener("DOMContentLoaded",function(){
     populateSemanas();
   });
 
+  document.getElementById("btn-ir-anotarse").addEventListener("click",function(){showScreen("anotarse");});
   document.getElementById("btn-cambiar-nombre").addEventListener("click",function(){
     if(confirm("Queres cambiar tu nombre?")){
       localStorage.removeItem("gyvra_nombre");
@@ -509,14 +529,12 @@ document.addEventListener("DOMContentLoaded",function(){
       location.reload();
     }
   });
-
   document.getElementById("btn-cerrar-sesion").addEventListener("click",function(){
     if(confirm("Cerrar sesion? Vas a tener que ingresar tu nombre de nuevo.")){
       localStorage.clear();
       location.reload();
     }
   });
-
   document.getElementById("btn-confirmar-rotacion").addEventListener("click",registrarRotacion);
   document.getElementById("btn-cargar-act").addEventListener("click",cargarActividades);
   document.getElementById("btn-guardar-act").addEventListener("click",guardarActividades);
