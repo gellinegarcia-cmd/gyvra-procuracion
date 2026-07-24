@@ -39,7 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .cupos-count{font-size:13px;font-weight:700}
 .cupos-full{color:#c0392b}
 .cupos-ok{color:#27ae60}
-.cupos-dots{display:flex;gap:3px;flex-wrap:wrap;max-width:80px}
+.cupos-dots{display:flex;gap:3px;flex-wrap:wrap;max-width:60px}
 .dot{width:7px;height:7px;border-radius:50%;background:#e0e0e0}
 .dot.filled{background:#0a2a5e}
 .week-body{padding:8px 16px}
@@ -112,6 +112,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
       <label>Tu especialidad / institucion</label>
       <input type="text" id="input-registro-esp" placeholder="Ej: Medicina Interna - UBA"/>
     </div>
+    <div class="form-group">
+      <label>Tu numero de celular</label>
+      <input type="tel" id="input-registro-cel" placeholder="Ej: 1155667788"/>
+    </div>
     <button class="btn-primary" id="btn-comenzar">Comenzar rotacion</button>
   </div>
 </div>
@@ -132,7 +136,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
     <i class="ti ti-info-circle" aria-hidden="true"></i>
     <div>
       <strong>Vista de disponibilidad</strong><br>
-      Aca podes ver los dias disponibles y reservados. Para anotarte en una rotacion, toca el boton <strong>Anotarse</strong> en el menu de abajo.
+      Aca podes ver los dias disponibles y reservados. Para anotarte toca el boton <strong>Anotarse</strong> abajo.
     </div>
   </div>
   <div class="month-nav">
@@ -175,7 +179,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 <div id="screen-miperfil" class="screen">
   <p class="section-title">Mi perfil</p>
   <div id="user-card-perfil"></div>
-  <button class="btn-secondary" id="btn-cambiar-nombre">Cambiar mi nombre</button>
+  <button class="btn-secondary" id="btn-cambiar-nombre">Cambiar mis datos</button>
   <button class="btn-danger" id="btn-cerrar-sesion">Cerrar sesion</button>
   <div class="separator"></div>
   <p class="section-title">Mis rotaciones</p>
@@ -205,6 +209,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 
 <script>
 var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxiRC2R91DFl75E5rNU0wWLVG_6cJ_16RNn-HnGyOcJG-BU3eSDrznkncw3SMrf-3P7vg/exec";
+var MAX_CUPOS = 6;
 var ACTIVIDADES = [
   {id:"a1",texto:"Cargar en el Sintra"},
   {id:"a2",texto:"Completar documentacion"},
@@ -237,6 +242,7 @@ var actState = {};
 var currentRating = 0;
 var miNombre = "";
 var miEsp = "";
+var miCel = "";
 
 function pad(n){return n<10?"0"+n:""+n;}
 function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
@@ -269,7 +275,7 @@ function fetchRotaciones(){
 function actualizarUI(){
   document.getElementById("header-user").textContent=miNombre;
   var ini=miNombre.split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
-  var card='<div class="user-card"><div class="user-avatar">'+ini+'</div><div class="user-info"><p>'+miNombre+'</p><span>'+miEsp+'</span></div></div>';
+  var card='<div class="user-card"><div class="user-avatar">'+ini+'</div><div class="user-info"><p>'+miNombre+'</p><span>'+miEsp+(miCel?' - '+miCel:'')+'</span></div></div>';
   document.getElementById("user-card-anotarse").innerHTML=card;
   document.getElementById("user-card-actividades").innerHTML=card;
   document.getElementById("user-card-perfil").innerHTML=card;
@@ -301,9 +307,9 @@ function renderCalendario(){
       var key=dateKey(week.start);
       var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===key;});
       var n=ocupados.length;
-      var lleno=n>=10;
+      var lleno=n>=MAX_CUPOS;
       var dots="";
-      for(var j=0;j<10;j++) dots+='<div class="dot '+(j<n?"filled":"")+'" ></div>';
+      for(var j=0;j<MAX_CUPOS;j++) dots+='<div class="dot '+(j<n?"filled":"")+'" ></div>';
       var rows="";
       ocupados.forEach(function(r){
         var ini=r[0].split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
@@ -312,7 +318,7 @@ function renderCalendario(){
       });
       var card=document.createElement("div");
       card.className="week-card";
-      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+" - "+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/10</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
+      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+" - "+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+MAX_CUPOS+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
       container.appendChild(card);
     });
   });
@@ -352,7 +358,7 @@ function registrarRotacion(){
   alertEl.innerHTML='<div class="alert alert-info">Verificando cupos...</div>';
   fetchRotaciones().then(function(){
     var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});
-    if(ocupados.length>=10){alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa (10/10).</div>';return;}
+    if(ocupados.length>=MAX_CUPOS){alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa ('+MAX_CUPOS+'/'+MAX_CUPOS+').</div>';return;}
     var yaEstaEnEsta=ocupados.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase();});
     if(yaEstaEnEsta.length>0){alertEl.innerHTML='<div class="alert alert-error">Ya estas anotado en esa semana.</div>';return;}
     var yaEnOtra=rotaciones.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase()&&String(r[2]).trim()!==startKey;});
@@ -362,7 +368,7 @@ function registrarRotacion(){
       return;
     }
     alertEl.innerHTML='<div class="alert alert-info">Guardando...</div>';
-    var row=[miNombre,miEsp,startKey,endKey,mesNombre,new Date().toISOString()];
+    var row=[miNombre,miEsp,startKey,endKey,mesNombre,miCel,new Date().toISOString()];
     fetch(SCRIPT_URL+"?action=addRotacion&data="+encodeURIComponent(JSON.stringify(row)))
       .then(function(r){return r.json();})
       .then(function(data){
@@ -510,11 +516,14 @@ document.addEventListener("DOMContentLoaded",function(){
   document.getElementById("btn-comenzar").addEventListener("click",function(){
     var nombre=document.getElementById("input-registro-nombre").value.trim();
     var esp=document.getElementById("input-registro-esp").value.trim();
+    var cel=document.getElementById("input-registro-cel").value.trim();
     if(!nombre){alert("Ingresa tu nombre.");return;}
     localStorage.setItem("gyvra_nombre",nombre);
     localStorage.setItem("gyvra_esp",esp);
+    localStorage.setItem("gyvra_cel",cel);
     miNombre=nombre;
     miEsp=esp;
+    miCel=cel;
     document.getElementById("overlay-registro").style.display="none";
     actualizarUI();
     renderCalendario();
@@ -523,14 +532,13 @@ document.addEventListener("DOMContentLoaded",function(){
 
   document.getElementById("btn-ir-anotarse").addEventListener("click",function(){showScreen("anotarse");});
   document.getElementById("btn-cambiar-nombre").addEventListener("click",function(){
-    if(confirm("Queres cambiar tu nombre?")){
-      localStorage.removeItem("gyvra_nombre");
-      localStorage.removeItem("gyvra_esp");
+    if(confirm("Queres cambiar tus datos?")){
+      localStorage.clear();
       location.reload();
     }
   });
   document.getElementById("btn-cerrar-sesion").addEventListener("click",function(){
-    if(confirm("Cerrar sesion? Vas a tener que ingresar tu nombre de nuevo.")){
+    if(confirm("Cerrar sesion? Vas a tener que ingresar tus datos de nuevo.")){
       localStorage.clear();
       location.reload();
     }
@@ -548,6 +556,7 @@ document.addEventListener("DOMContentLoaded",function(){
 
   miNombre=localStorage.getItem("gyvra_nombre")||"";
   miEsp=localStorage.getItem("gyvra_esp")||"";
+  miCel=localStorage.getItem("gyvra_cel")||"";
   if(miNombre){
     document.getElementById("overlay-registro").style.display="none";
     actualizarUI();
