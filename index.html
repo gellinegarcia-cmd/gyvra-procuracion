@@ -209,7 +209,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 
 <script>
 var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxiRC2R91DFl75E5rNU0wWLVG_6cJ_16RNn-HnGyOcJG-BU3eSDrznkncw3SMrf-3P7vg/exec";
-var MAX_CUPOS = 6;
+var MAX_CUPOS = 5;
 var ACTIVIDADES = [
   {id:"a1",texto:"Cargar en el Sintra"},
   {id:"a2",texto:"Completar documentacion"},
@@ -249,18 +249,54 @@ function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.get
 function formatDate(d){return d.getDate()+"/"+(d.getMonth()+1);}
 function formatDateKey(k){if(!k)return "";var p=k.split("-");return p[2]+"/"+p[1];}
 
-function getWeeksOfMonth(year,month){
-  var weeks=[];
-  var d=new Date(year,month,1);
-  while(d.getMonth()===month){
-    var start=new Date(d);
-    var end=new Date(d);
-    end.setDate(end.getDate()+6);
-    if(end.getMonth()!==month) end.setDate(new Date(year,month+1,0).getDate());
-    weeks.push({start:new Date(start),end:new Date(end)});
-    d.setDate(d.getDate()+7);
+// Semanas 2026: lunes a domingo (comportamiento original)
+// Semanas 2027+: lunes a sabado
+function getWeeksOfYear(year, month) {
+  var weeks = [];
+  if (year <= 2026) {
+    // Logica original: semanas del mes calendario
+    var d = new Date(year, month, 1);
+    while (d.getMonth() === month) {
+      var start = new Date(d);
+      var end = new Date(d);
+      end.setDate(end.getDate() + 6);
+      if (end.getMonth() !== month) end = new Date(year, month + 1, 0);
+      weeks.push({start: new Date(start), end: new Date(end)});
+      d.setDate(d.getDate() + 7);
+    }
+  } else {
+    // 2027+: semanas lunes a sabado
+    // Encontrar el primer lunes del mes (o del mes anterior si cae en ese mes)
+    var firstDay = new Date(year, month, 1);
+    var dow = firstDay.getDay(); // 0=dom,1=lun,...,6=sab
+    // Retroceder hasta el lunes anterior o igual
+    var offset = (dow === 0) ? -6 : 1 - dow;
+    var lunes = new Date(firstDay);
+    lunes.setDate(firstDay.getDate() + offset);
+
+    var lastDay = new Date(year, month + 1, 0); // ultimo dia del mes
+
+    var cur = new Date(lunes);
+    while (cur <= lastDay) {
+      var wStart = new Date(cur);
+      var wEnd = new Date(cur);
+      wEnd.setDate(wEnd.getDate() + 5); // lunes + 5 = sabado
+
+      // Solo incluir semanas que tengan al menos un dia dentro del mes
+      if (wEnd >= firstDay && wStart <= lastDay) {
+        weeks.push({start: new Date(wStart), end: new Date(wEnd)});
+      }
+      cur.setDate(cur.getDate() + 7);
+    }
   }
   return weeks;
+}
+
+function getCuposParaSemana(n, year) {
+  // Semanas con 6 anotados en 2026 quedan con cupo 6 (legacy)
+  // Todo lo demas usa MAX_CUPOS = 5
+  if (year <= 2026 && n >= 6) return 6;
+  return MAX_CUPOS;
 }
 
 function fetchRotaciones(){
@@ -295,30 +331,45 @@ function showScreen(name){
 function renderCalendario(){
   var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   document.getElementById("month-title").textContent=months[currentMonth]+" "+currentYear;
+
   var btnPrev=document.getElementById("btn-prev-month");
-  btnPrev.style.opacity=(currentMonth===mesInicial&&currentYear===anioInicial)?"0.3":"1";
-  btnPrev.disabled=(currentMonth===mesInicial&&currentYear===anioInicial);
+  var esPrimerMes=(currentMonth===mesInicial&&currentYear===anioInicial);
+  btnPrev.style.opacity=esPrimerMes?"0.3":"1";
+  btnPrev.disabled=esPrimerMes;
+
+  // Boton siguiente: deshabilitar si llegamos a dic 2027
+  var btnNext=document.getElementById("btn-next-month");
+  var esUltimoMes=(currentMonth===11&&currentYear===2027);
+  btnNext.style.opacity=esUltimoMes?"0.3":"1";
+  btnNext.disabled=esUltimoMes;
+
   var container=document.getElementById("weeks-container");
   container.innerHTML='<div class="loading">Cargando...</div>';
+
   fetchRotaciones().then(function(){
-    var weeks=getWeeksOfMonth(currentYear,currentMonth);
+    var weeks=getWeeksOfYear(currentYear,currentMonth);
     container.innerHTML="";
+
     weeks.forEach(function(week,i){
       var key=dateKey(week.start);
       var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===key;});
       var n=ocupados.length;
-      var lleno=n>=MAX_CUPOS;
+      var cupoMax=getCuposParaSemana(n, currentYear);
+      var lleno=n>=cupoMax;
+
       var dots="";
-      for(var j=0;j<MAX_CUPOS;j++) dots+='<div class="dot '+(j<n?"filled":"")+'" ></div>';
+      for(var j=0;j<cupoMax;j++) dots+='<div class="dot '+(j<n?"filled":"")+'" ></div>';
+
       var rows="";
       ocupados.forEach(function(r){
         var ini=r[0].split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
         var esMio=r[0].toLowerCase()===miNombre.toLowerCase();
         rows+='<div class="rotante-row"><div class="avatar" style="'+(esMio?"background:#0a2a5e;color:#fff":"")+'" >'+ini+'</div><span style="font-weight:500'+(esMio?";color:#0a2a5e":"")+'" >'+r[0]+(esMio?" (yo)":"")+'</span><span style="margin-left:auto;font-size:12px;color:#999">'+(r[1]||"")+'</span></div>';
       });
+
       var card=document.createElement("div");
       card.className="week-card";
-      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+" - "+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+MAX_CUPOS+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
+      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+" - "+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+cupoMax+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
       container.appendChild(card);
     });
   });
@@ -326,6 +377,7 @@ function renderCalendario(){
 
 function changeMonth(dir){
   if(dir===-1&&currentMonth===mesInicial&&currentYear===anioInicial) return;
+  if(dir===1&&currentMonth===11&&currentYear===2027) return;
   currentMonth+=dir;
   if(currentMonth>11){currentMonth=0;currentYear++;}
   if(currentMonth<0){currentMonth=11;currentYear--;}
@@ -336,13 +388,23 @@ function populateSemanas(){
   var sel=document.getElementById("select-semana");
   sel.innerHTML="";
   var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-  for(var m=mesInicial;m<12;m++){
-    getWeeksOfMonth(anioInicial,m).forEach(function(week,i){
-      var opt=document.createElement("option");
-      opt.value=dateKey(week.start)+"|"+dateKey(week.end)+"|"+months[m];
-      opt.textContent=months[m]+" - Semana "+(i+1)+" ("+formatDate(week.start)+"-"+formatDate(week.end)+")";
-      sel.appendChild(opt);
+
+  // Generar semanas desde hoy hasta dic 2027
+  var y = anioInicial;
+  var m = mesInicial;
+  while(y < 2028) {
+    var weeks = getWeeksOfYear(y, m);
+    weeks.forEach(function(week, i){
+      // Solo mostrar semanas futuras o actuales
+      if(week.end >= hoy) {
+        var opt=document.createElement("option");
+        opt.value=dateKey(week.start)+"|"+dateKey(week.end)+"|"+months[m]+" "+y;
+        opt.textContent=months[m]+" "+y+" - Semana "+(i+1)+" ("+formatDate(week.start)+"-"+formatDate(week.end)+")";
+        sel.appendChild(opt);
+      }
     });
+    m++;
+    if(m>11){m=0;y++;}
   }
 }
 
@@ -355,10 +417,17 @@ function registrarRotacion(){
   var startKey=parts[0];
   var endKey=parts[1];
   var mesNombre=parts[2];
+
   alertEl.innerHTML='<div class="alert alert-info">Verificando cupos...</div>';
   fetchRotaciones().then(function(){
     var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});
-    if(ocupados.length>=MAX_CUPOS){alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa ('+MAX_CUPOS+'/'+MAX_CUPOS+').</div>';return;}
+    var yearSemana = parseInt(startKey.split("-")[0]);
+    var cupoMax = getCuposParaSemana(ocupados.length, yearSemana);
+
+    if(ocupados.length>=cupoMax){
+      alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa ('+ocupados.length+'/'+cupoMax+').</div>';
+      return;
+    }
     var yaEstaEnEsta=ocupados.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase();});
     if(yaEstaEnEsta.length>0){alertEl.innerHTML='<div class="alert alert-error">Ya estas anotado en esa semana.</div>';return;}
     var yaEnOtra=rotaciones.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase()&&String(r[2]).trim()!==startKey;});
@@ -512,7 +581,6 @@ function buildStars(){
 
 document.addEventListener("DOMContentLoaded",function(){
   buildStars();
-
   document.getElementById("btn-comenzar").addEventListener("click",function(){
     var nombre=document.getElementById("input-registro-nombre").value.trim();
     var esp=document.getElementById("input-registro-esp").value.trim();
@@ -521,27 +589,18 @@ document.addEventListener("DOMContentLoaded",function(){
     localStorage.setItem("gyvra_nombre",nombre);
     localStorage.setItem("gyvra_esp",esp);
     localStorage.setItem("gyvra_cel",cel);
-    miNombre=nombre;
-    miEsp=esp;
-    miCel=cel;
+    miNombre=nombre;miEsp=esp;miCel=cel;
     document.getElementById("overlay-registro").style.display="none";
     actualizarUI();
     renderCalendario();
     populateSemanas();
   });
-
   document.getElementById("btn-ir-anotarse").addEventListener("click",function(){showScreen("anotarse");});
   document.getElementById("btn-cambiar-nombre").addEventListener("click",function(){
-    if(confirm("Queres cambiar tus datos?")){
-      localStorage.clear();
-      location.reload();
-    }
+    if(confirm("Queres cambiar tus datos?")){localStorage.clear();location.reload();}
   });
   document.getElementById("btn-cerrar-sesion").addEventListener("click",function(){
-    if(confirm("Cerrar sesion? Vas a tener que ingresar tus datos de nuevo.")){
-      localStorage.clear();
-      location.reload();
-    }
+    if(confirm("Cerrar sesion? Vas a tener que ingresar tus datos de nuevo.")){localStorage.clear();location.reload();}
   });
   document.getElementById("btn-confirmar-rotacion").addEventListener("click",registrarRotacion);
   document.getElementById("btn-cargar-act").addEventListener("click",cargarActividades);
@@ -553,7 +612,6 @@ document.addEventListener("DOMContentLoaded",function(){
   document.getElementById("nav-anotarse").addEventListener("click",function(){showScreen("anotarse");});
   document.getElementById("nav-actividades").addEventListener("click",function(){showScreen("actividades");});
   document.getElementById("nav-miperfil").addEventListener("click",function(){showScreen("miperfil");});
-
   miNombre=localStorage.getItem("gyvra_nombre")||"";
   miEsp=localStorage.getItem("gyvra_esp")||"";
   miCel=localStorage.getItem("gyvra_cel")||"";
