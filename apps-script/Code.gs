@@ -359,8 +359,7 @@ function migrar() {
 // Constancias
 // ---------------------------------------------------------------------------
 var ADMIN_EMAIL = 'gellinegarcia@gmail.com';
-// URL de esta misma implementación (la que usa la app). No cambia al actualizar la versión.
-var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxiRC2R91DFl75E5rNU0wWLVG_6cJ_16RNn-HnGyOcJG-BU3eSDrznkncw3SMrf-3P7vg/exec';
+// El link del mail usa ScriptApp.getService().getUrl(): siempre la implementación actual.
 var MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 function props() { return PropertiesService.getScriptProperties(); }
@@ -417,7 +416,7 @@ function solicitarConstancia(d) {
   });
   if (res) return res;
 
-  var link = WEBAPP_URL + '?action=aprobar&id=' + encodeURIComponent(fila.id) + '&token=' + encodeURIComponent(token);
+  var link = ScriptApp.getService().getUrl() + '?action=aprobar&id=' + encodeURIComponent(fila.id) + '&token=' + encodeURIComponent(token);
   var html =
     '<div style="font-family:Arial,sans-serif;font-size:15px;color:#1a1a1a;max-width:520px">' +
     '<h2 style="color:#0a2a5e">Solicitud de constancia de rotación</h2>' +
