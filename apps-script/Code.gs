@@ -411,23 +411,31 @@ function solicitarConstancia(d) {
     var hosp = r[C.HOSP] || d.hospital || '';
     info.sheet.getRange(i + 1, C.DNI + 1, 1, 3).setValues([[dni, prov, hosp]]);
     info.sheet.getRange(i + 1, C.ESTADO + 1, 1, 4).setValues([['solicitada', inicio, fin, ahora()]]);
-    fila = { nombre: r[C.NOMBRE], dni: dni, prov: prov, hosp: hosp, cel: r[C.CEL], id: r[C.ID] };
+    // Semana reservada: la que la app le mostró al rotante (regla de 5 días de 2027, calculada con los
+    // feriados de fechas.js). Solo se acepta si cae dentro de la fila; si no, se usan las fechas de la fila.
+    var rIni = String(r[C.INICIO]), rFin = String(r[C.FIN]);
+    var rd = String(d.reservaDesde || '').trim(), rh = String(d.reservaHasta || '').trim();
+    if (esFechaKey(rd) && esFechaKey(rh) && rd <= rh && rd >= rIni && rh <= rFin) { rIni = rd; rFin = rh; }
+    fila = { nombre: r[C.NOMBRE], dni: dni, prov: prov, hosp: hosp, cel: r[C.CEL], id: r[C.ID], resIni: rIni, resFin: rFin };
     return null;
   });
   if (res) return res;
 
   var link = ScriptApp.getService().getUrl() + '?action=aprobar&id=' + encodeURIComponent(fila.id) + '&token=' + encodeURIComponent(token);
+  var modificadas = inicio !== fila.resIni || fin !== fila.resFin;
   var html =
     '<div style="font-family:Arial,sans-serif;font-size:15px;color:#1a1a1a;max-width:520px">' +
+    (modificadas ? '<div style="background:#fef9c3;border:2px solid #facc15;border-radius:10px;padding:14px 16px;margin-bottom:16px;font-weight:bold;color:#713f12">⚠️ El rotante modificó las fechas de su rotación. Verificá antes de confirmar.</div>' : '') +
     '<h2 style="color:#0a2a5e">Solicitud de constancia de rotación</h2>' +
     '<table style="border-collapse:collapse;font-size:15px">' +
     filaMail('Nombre', fila.nombre) + filaMail('DNI', fila.dni) + filaMail('Hospital de origen', fila.hosp) +
     filaMail('Provincia', fila.prov) + filaMail('Celular', fila.cel) +
-    filaMail('Desde', fechaLarga(inicio)) + filaMail('Hasta', fechaLarga(fin)) +
+    filaMail('Semana reservada', 'del ' + fechaLarga(fila.resIni) + ' al ' + fechaLarga(fila.resFin)) +
+    filaMail('Fechas solicitadas', 'del ' + fechaLarga(inicio) + ' al ' + fechaLarga(fin)) +
     '</table>' +
     '<p style="margin:28px 0"><a href="' + link + '" style="background:#16a34a;color:#fff;text-decoration:none;padding:16px 28px;border-radius:10px;font-weight:bold;font-size:17px;display:inline-block">CONFIRMAR ROTACIÓN</a></p>' +
     '<p style="font-size:12px;color:#888">Al confirmar se genera el PDF y el rotante lo puede descargar desde la app.</p></div>';
-  MailApp.sendEmail({ to: ADMIN_EMAIL, subject: 'Constancia de rotación — ' + fila.nombre, htmlBody: html });
+  MailApp.sendEmail({ to: ADMIN_EMAIL, subject: 'Constancia de rotación — ' + fila.nombre + (modificadas ? ' (fechas modificadas)' : ''), htmlBody: html });
   return buildResponse({ status: 'ok' });
 }
 function filaMail(k, v) {

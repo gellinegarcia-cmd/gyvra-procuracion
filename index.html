@@ -176,6 +176,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .constancia-box .titulo{font-weight:700;color:#0a2a5e;margin-bottom:8px}
 .constancia-box .fechas{display:flex;gap:10px;margin:10px 0}
 .constancia-box .fechas label{flex:1;font-size:12px;font-weight:600;color:#555;min-width:0}
+.constancia-cambio{font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin:-2px 0 10px}
+.constancia-cambio:empty{display:none}
 .constancia-box .fechas input{width:100%;margin-top:4px;padding:11px 8px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:15px;background:#fff;color:#1a1a1a}
 .constancia-espera{background:#fef9c3;color:#854d0e;border-radius:10px;padding:12px;font-weight:600}
 .constancia-ok{color:#166534;font-weight:600;margin-bottom:4px}
@@ -830,10 +832,14 @@ function renderMisRotaciones(){
       btn.addEventListener("click",function(){cancelarRotacion(btn.getAttribute("data-sk"));});
     });
     cont.querySelectorAll(".btn-solicitar").forEach(function(btn){
+      var box=btn.closest(".constancia-box");
+      var reserva={desde:btn.getAttribute("data-rdesde"),hasta:btn.getAttribute("data-rhasta")};
+      var avisar=function(){avisoCambioFechas(box,reserva);};
+      box.querySelectorAll(".in-ini,.in-fin").forEach(function(inp){inp.addEventListener("input",avisar);inp.addEventListener("change",avisar);});
+      avisar();
       btn.addEventListener("click",function(){
         var sk=btn.getAttribute("data-sk");
-        var box=btn.closest(".constancia-box");
-        solicitarConstancia(sk,box.querySelector(".in-ini").value,box.querySelector(".in-fin").value,box.querySelector(".constancia-msg"));
+        solicitarConstancia(sk,box.querySelector(".in-ini").value,box.querySelector(".in-fin").value,box.querySelector(".constancia-msg"),reserva);
       });
     });
     cont.querySelectorAll(".btn-descargar").forEach(function(btn){
@@ -859,23 +865,32 @@ function htmlConstancia(r){
   }else if(estado==="solicitada"){
     h+='<div class="constancia-espera">⏳ Esperando confirmación del coordinador</div><div style="font-size:13px;color:#555;margin-top:8px">Fechas enviadas: del '+Fechas.fmtLargo(ini)+' al '+Fechas.fmtLargo(fin)+'</div>';
   }else{
-    h+='<div class="titulo">Tu rotación terminó. Confirmá las fechas para pedir tu constancia</div>'+
-      '<div style="font-size:13px;color:#555">Si alguna fecha no es correcta, corregila antes de enviar.</div>'+
+    h+='<div class="titulo">Tu rotación terminó. Pedí tu constancia</div>'+
+      '<div style="font-size:13px;color:#555">Confirmá o corregí las fechas reales de tu rotación. Si te quedaste más o menos días, modificalas acá. El coordinador las revisa antes de aprobar.</div>'+
       '<div class="fechas"><label>Inicio<input type="date" class="in-ini" value="'+esc(ini)+'"></label><label>Fin<input type="date" class="in-fin" value="'+esc(fin)+'"></label></div>'+
+      '<div class="constancia-cambio"></div>'+
       '<div class="constancia-msg"></div>'+
-      '<button class="btn-primary btn-solicitar" data-sk="'+esc(sk)+'">Solicitar constancia</button>';
+      '<button class="btn-primary btn-solicitar" data-sk="'+esc(sk)+'" data-rdesde="'+esc(rg.desde)+'" data-rhasta="'+esc(rg.hasta)+'">Solicitar constancia</button>';
   }
   return h+'</div>';
 }
 
-function solicitarConstancia(sk,ini,fin,msgEl){
+// Nota chica cuando el rotante cambia las fechas respecto de la reserva
+function fechaDMA(k){var p=String(k||"").split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:String(k||"");}
+function avisoCambioFechas(box,reserva){
+  var ini=box.querySelector(".in-ini").value, fin=box.querySelector(".in-fin").value;
+  var nota=box.querySelector(".constancia-cambio");
+  var cambio=Fechas.esKey(ini)&&Fechas.esKey(fin)&&(ini!==reserva.desde||fin!==reserva.hasta);
+  nota.textContent=cambio?"Reservaste del "+fechaDMA(reserva.desde)+" al "+fechaDMA(reserva.hasta)+". Vas a solicitar del "+fechaDMA(ini)+" al "+fechaDMA(fin)+".":"";
+}
+function solicitarConstancia(sk,ini,fin,msgEl,reserva){
   function msg(t,tipo){if(msgEl) msgEl.innerHTML=t?'<div class="alert alert-'+(tipo||"info")+'">'+t+'</div>':"";}
   if(!Fechas.esKey(ini)||!Fechas.esKey(fin)){msg("Completá las dos fechas.","error");return;}
   if(ini>fin){msg("La fecha de inicio no puede ser posterior a la de fin.","error");return;}
   if(fin>=hoyKey()){msg("La fecha de fin tiene que ser anterior a hoy.","error");return;}
   if(faltanDatos()){
     // Después de completar los datos, se vuelve a pedir con las mismas fechas
-    abrirCompletarDatos("Para pedir tu constancia necesitamos tu DNI, provincia y hospital de origen.",function(){solicitarConstancia(sk,ini,fin,msgEl);},true);
+    abrirCompletarDatos("Para pedir tu constancia necesitamos tu DNI, provincia y hospital de origen.",function(){solicitarConstancia(sk,ini,fin,msgEl,reserva);},true);
     return;
   }
   msg("Enviando solicitud...");
@@ -886,7 +901,8 @@ function solicitarConstancia(sk,ini,fin,msgEl){
     });
   conId.then(function(fila){
     if(!fila||!fila[COL.ID]) throw new Error("sin id");
-    return api("solicitarConstancia",{id:fila[COL.ID],dni:miDni,nombre:miNombre,provincia:miProv,hospital:miHosp,inicio:ini,fin:fin});
+    return api("solicitarConstancia",{id:fila[COL.ID],dni:miDni,nombre:miNombre,provincia:miProv,hospital:miHosp,inicio:ini,fin:fin,
+      reservaDesde:reserva?reserva.desde:"",reservaHasta:reserva?reserva.hasta:""});
   }).then(function(data){
     if(data.status==="ok"){renderMisRotaciones();return;}
     if(data.status==="busy") msg("Intentá de nuevo en unos segundos.","error");
