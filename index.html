@@ -9,6 +9,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0a2a5e">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>GYVRA Procuracion</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
@@ -111,6 +113,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .btn-accion{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;text-decoration:none;border:1.5px solid #0a2a5e;color:#0a2a5e;background:#fff;cursor:pointer}
 .btn-accion i{font-size:20px}
 .btn-accion.wa{border-color:#16a34a;color:#166534;background:#f0fdf4}
+.instalar-dibujo{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 18px;color:#0a2a5e}
+.instalar-dibujo i{font-size:40px}
+.instalar-dibujo .flecha{font-size:24px;color:#999}
+.instalar-paso{font-size:15px;color:#1a1a1a;line-height:1.6;text-align:center;margin-bottom:12px}
+.instalar-paso i{font-size:20px;vertical-align:-4px;color:#0a2a5e}
+.instalar-nota{font-size:13px;color:#854d0e;background:#fef9c3;border-radius:10px;padding:10px 12px;text-align:center;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -171,6 +179,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
     <div id="completar-error"></div>
     <button class="btn-primary" id="btn-completar-guardar">Guardar</button>
     <button class="btn-secondary" id="btn-completar-despues">Más tarde</button>
+  </div>
+</div>
+
+<div id="overlay-instalar" class="overlay" style="display:none">
+  <div class="modal">
+    <h2>Instalá la app</h2>
+    <p class="hospital">Tenela en tu pantalla de inicio para abrirla rápido, como cualquier app.</p>
+    <div id="instalar-contenido"></div>
+    <button class="btn-secondary" id="btn-instalar-listo">Ya la instalé</button>
+    <button class="btn-secondary" id="btn-instalar-luego" style="border-color:#ccc;color:#777">Más tarde</button>
   </div>
 </div>
 
@@ -793,6 +811,64 @@ function guardarRating(){
     .catch(function(){alertEl.innerHTML='<div class="alert alert-error">Error al enviar.</div>';});
 }
 
+// ---- Instalación como app (cartel en la primera visita; "Más tarde" hasta 3 veces) ----
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+var eventoInstalar=null;
+var instalacionMostradaEstaVisita=false;
+window.addEventListener("beforeinstallprompt",function(e){
+  e.preventDefault();
+  eventoInstalar=e;
+  if(document.getElementById("overlay-instalar").style.display==="flex") renderInstalar();
+  else mostrarInstalacionSiCorresponde();
+});
+window.addEventListener("appinstalled",function(){lsSet("gyvra_instalada","1");cerrarInstalar();});
+function esStandalone(){return (window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches)||window.navigator.standalone===true;}
+function esIOS(){var ua=navigator.userAgent;return /iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);}
+function esAndroid(){return /android/i.test(navigator.userAgent);}
+function esSafariIOS(){return esIOS()&&!/CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|Instagram|FBAN|FBAV|Line\/|WhatsApp/i.test(navigator.userAgent);}
+function renderInstalar(){
+  var c=document.getElementById("instalar-contenido");
+  var html="";
+  if(esIOS()){
+    html='<div class="instalar-dibujo"><i class="ti ti-device-mobile"></i><span class="flecha">→</span><i class="ti ti-square-arrow-up"></i><span class="flecha">→</span><i class="ti ti-square-plus"></i></div>';
+    if(!esSafariIOS()) html+='<div class="instalar-nota">Abrí este link en <strong>Safari</strong>.</div>';
+    html+='<p class="instalar-paso">Tocá el botón <strong>Compartir</strong> <i class="ti ti-square-arrow-up"></i> (el cuadrado con la flecha hacia arriba) → bajá y tocá <strong>Agregar a inicio</strong> <i class="ti ti-square-plus"></i></p>';
+  }else if(eventoInstalar){
+    html='<div class="instalar-dibujo"><i class="ti ti-device-mobile"></i><span class="flecha">→</span><i class="ti ti-download"></i></div>'+
+      '<button class="btn-primary" id="btn-instalar-app" style="font-size:18px;padding:18px;margin-bottom:6px">Instalar app</button>';
+  }else{
+    html='<div class="instalar-dibujo"><i class="ti ti-device-mobile"></i><span class="flecha">→</span><i class="ti ti-dots-vertical"></i><span class="flecha">→</span><i class="ti ti-square-plus"></i></div>'+
+      '<p class="instalar-paso">Tocá los <strong>3 puntitos ⋮</strong> arriba a la derecha → <strong>Agregar a pantalla de inicio</strong> (o <em>Instalar app</em>)</p>';
+  }
+  c.innerHTML=html;
+  var b=document.getElementById("btn-instalar-app");
+  if(b) b.addEventListener("click",function(){
+    var ev=eventoInstalar;
+    if(!ev) return;
+    ev.prompt();
+    ev.userChoice.then(function(r){
+      eventoInstalar=null;
+      if(r&&r.outcome==="accepted"){lsSet("gyvra_instalada","1");cerrarInstalar();}
+      else renderInstalar();
+    });
+  });
+}
+function mostrarInstalacionSiCorresponde(){
+  if(instalacionMostradaEstaVisita||!miNombre||esStandalone()) return;
+  if(lsGet("gyvra_instalada")==="1") return;
+  var vistas=parseInt(lsGet("gyvra_instalar_vistas")||"0",10);
+  if(vistas>=3) return;
+  if(!esIOS()&&!esAndroid()&&!eventoInstalar) return; // computadora sin opción de instalar
+  if(document.getElementById("overlay-registro").style.display!=="none") return;
+  if(document.getElementById("overlay-completar").style.display==="flex") return;
+  instalacionMostradaEstaVisita=true;
+  lsSet("gyvra_instalar_vistas",String(vistas+1));
+  renderInstalar();
+  document.getElementById("overlay-instalar").style.display="flex";
+}
+function cerrarInstalar(){document.getElementById("overlay-instalar").style.display="none";}
+
 function buildStars(){
   var cont=document.getElementById("stars-container");
   cont.innerHTML="";
@@ -881,6 +957,12 @@ document.addEventListener("DOMContentLoaded",function(){
     renderCalendario();
     populateSemanas();
     if(faltanDatos()) abrirCompletarDatos("Completá tus datos para poder descargar tu constancia.",null,false);
+    mostrarInstalacionSiCorresponde();
+  }
+  document.getElementById("btn-instalar-listo").addEventListener("click",function(){lsSet("gyvra_instalada","1");cerrarInstalar();});
+  document.getElementById("btn-instalar-luego").addEventListener("click",cerrarInstalar);
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
   }
 });
 </script>
