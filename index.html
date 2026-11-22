@@ -374,6 +374,7 @@ var miDni = "";
 var miProv = "";
 var miHosp = "";
 var misRotaciones = [];
+var misRotacionesError = false;
 var PROVINCIAS = ["Buenos Aires","Ciudad Autónoma de Buenos Aires","Catamarca","Chaco","Chubut","Córdoba","Corrientes","Entre Ríos","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquén","Río Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego, Antártida e Islas del Atlántico Sur","Tucumán"];
 // Columnas de la hoja Rotaciones (0 = A)
 var COL = {NOMBRE:0,ESP:1,INICIO:2,FIN:3,MES:4,CEL:5,TS:6,DNI:7,PROV:8,HOSP:9,ID:10,ESTADO:11,INI_CONF:12,FIN_CONF:13,F_SOL:14,F_APR:15,FILE:16};
@@ -401,7 +402,14 @@ function guardarLocal(){
 var pad=Fechas.pad, dateKey=Fechas.dateKey;
 function formatDateKey(k){if(!k)return "";var p=String(k).split("-");return p[2]+"/"+p[1];}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
-function mismoNombre(a,b){return String(a||"").trim().toLowerCase()===String(b||"").trim().toLowerCase();}
+// ¿Esta fila pública es mía? Se decide con "misRotaciones", que el backend arma con el mismo criterio que
+// esDeLaPersona (DNI primero; nombre solo si la fila no tiene DNI). Nunca se compara solo por nombre acá.
+function esFilaMia(r){
+  return misRotaciones.some(function(m){
+    if(r[COL.ID]&&m[COL.ID]) return String(r[COL.ID])===String(m[COL.ID]);
+    return String(r[COL.INICIO]).trim()===String(m[COL.INICIO]).trim()&&String(r[COL.NOMBRE]).trim()===String(m[COL.NOMBRE]).trim();
+  });
+}
 function ocupadosDe(startKey){return rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});}
 
 function fetchRotaciones(){
@@ -481,7 +489,7 @@ function renderCalendario(){
       var rows="";
       ocupados.forEach(function(r){
         var ini=String(r[0]).split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
-        var esMio=mismoNombre(r[0],miNombre);
+        var esMio=esFilaMia(r);
         rows+='<div class="rotante-row"><div class="avatar" style="'+(esMio?"background:#0a2a5e;color:#fff":"")+'" >'+esc(ini)+'</div><span style="font-weight:500'+(esMio?";color:#0a2a5e":"")+'" >'+esc(r[0])+(esMio?" (yo)":"")+'</span><span style="margin-left:auto;font-size:12px;color:#999;text-align:right">'+esc(r[9]||r[1]||"")+'</span></div>';
       });
 
@@ -562,12 +570,6 @@ function registrarRotacion(){
       alertEl.innerHTML='<div class="alert alert-error">Esa semana está completa ('+ocupados.length+'/'+cupoMax+').</div>';
       return;
     }
-    var hoyK=hoyKey();
-    var activa=rotaciones.filter(function(r){return mismoNombre(r[0],miNombre)&&String(r[3]).trim()>=hoyK;})[0];
-    if(activa){
-      alertEl.innerHTML='<div class="alert alert-error">'+mensajeYaTiene(activa[2],activa[3])+'</div>';
-      return;
-    }
     alertEl.innerHTML='<div class="alert alert-info">Guardando...</div>';
     var datos={nombre:miNombre,esp:miEsp,inicio:startKey,fin:endKey,mes:mesNombre,cel:miCel,dni:miDni,provincia:miProv,hospital:miHosp};
     api("addRotacion",datos)
@@ -582,7 +584,10 @@ function registrarRotacion(){
         }else if(data.status==="busy"){
           alertEl.innerHTML='<div class="alert alert-error">Hay mucha gente anotándose en este momento. Intentá de nuevo.</div>';
         }else if(data.status==="ya_tiene"){
-          alertEl.innerHTML='<div class="alert alert-error">'+mensajeYaTiene(data.inicio,data.fin)+'</div>';
+          alertEl.innerHTML='<div class="alert alert-error">'+mensajeYaTiene(data.inicio,data.fin)+'</div>'+
+            '<button class="btn-secondary" id="btn-ver-miperfil" style="margin-top:8px">Ver en Mi perfil</button>';
+          document.getElementById("btn-ver-miperfil").addEventListener("click",function(){showScreen("miperfil");});
+          fetchMisRotaciones().then(function(){actualizarAvisoConstancia();renderCalendario();});
         }else if(data.status==="cerrada"){
           alertEl.innerHTML='<div class="alert alert-error">Esa semana no está habilitada para anotarse.</div>';
         }else{
@@ -696,7 +701,8 @@ function descargarBlob(blob,nombre){
 }
 
 function mensajeYaTiene(ini,fin){
-  return "Ya tenés una rotación activa ("+formatDateKey(String(ini))+" al "+formatDateKey(String(fin))+"). Si querés cambiarla, cancelala primero desde Mi perfil.";
+  var f=function(k){var p=String(k).trim().split("-");return p.length===3?p[2]+"/"+p[1]+"/"+p[0]:String(k);};
+  return "Ya tenés una rotación activa del "+f(ini)+" al "+f(fin)+". Si querés cambiarla, cancelala primero desde Mi perfil.";
 }
 
 // ---- Completar datos (usuarios registrados antes de que se pidiera DNI/provincia/hospital) ----
@@ -744,12 +750,10 @@ function guardarCompletarDatos(){
 
 // ---- Mis rotaciones (filas completas, por DNI; filas viejas sin DNI, por nombre) ----
 function fetchMisRotaciones(){
+  misRotacionesError=false;
   return api("getMisRotaciones",{dni:miDni,nombre:miNombre})
     .then(function(data){misRotaciones=(data&&data.status==="ok"&&Array.isArray(data.rows))?data.rows:[];return misRotaciones;})
-    .catch(function(){
-      // Si falla, uso los datos públicos filtrados por nombre
-      return fetchRotaciones().then(function(){misRotaciones=rotaciones.filter(function(r){return mismoNombre(r[0],miNombre);});return misRotaciones;});
-    });
+    .catch(function(){misRotacionesError=true;return misRotaciones;});
 }
 
 function renderMisRotaciones(){
@@ -757,7 +761,9 @@ function renderMisRotaciones(){
   cont.innerHTML='<div class="loading">Cargando...</div>';
   fetchMisRotaciones().then(function(mias){
     if(!mias.length){
-      cont.innerHTML='<p style="font-size:13px;color:#999;text-align:center;padding:12px">No tenés rotaciones registradas.</p>';
+      cont.innerHTML=misRotacionesError
+        ?'<div class="alert alert-error">No se pudo conectar. Revisá tu conexión e intentá de nuevo.</div>'
+        :'<p style="font-size:13px;color:#999;text-align:center;padding:12px">No tenés rotaciones registradas.</p>';
       return;
     }
     var hoyK=hoyKey();
@@ -1190,7 +1196,7 @@ document.addEventListener("DOMContentLoaded",function(){
     populateSemanas();
     if(faltanDatos()) abrirCompletarDatos("Completá tus datos para poder descargar tu constancia.",null,false);
     mostrarInstalacionSiCorresponde();
-    fetchMisRotaciones().then(actualizarAvisoConstancia);
+    fetchMisRotaciones().then(function(){actualizarAvisoConstancia();renderCalendario();});
   }
   document.getElementById("btn-instalar-listo").addEventListener("click",function(){lsSet("gyvra_instalada","1");cerrarInstalar();});
   document.getElementById("btn-instalar-luego").addEventListener("click",cerrarInstalar);
