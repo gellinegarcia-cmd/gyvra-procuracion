@@ -97,6 +97,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .receso-card{border:1.5px dashed #bfdbfe;background:#f8fbff;border-radius:14px;padding:18px 16px;margin-bottom:12px;text-align:center;color:#1e40af;font-size:14px;line-height:1.5}
 .receso-card i{font-size:28px;display:block;margin-bottom:6px}
 .week-cerrada{font-size:11px;color:#999;padding:0 16px 10px}
+.btn-primary:disabled{background:#9ca3af;cursor:not-allowed}
+.ingreso-card{background:#fff7ed;border:1.5px solid #fed7aa;border-radius:14px;padding:16px;margin-bottom:14px;font-size:14px;color:#7c2d12;line-height:1.55}
+.ingreso-card .titulo{font-size:17px;font-weight:700;margin-bottom:6px;color:#9a3412}
+.check-ingreso{display:flex;gap:10px;align-items:flex-start;margin-top:12px;padding:12px;background:#fff;border-radius:10px;border:1.5px solid #fdba74;cursor:pointer;font-weight:600;color:#1a1a1a}
+.check-ingreso input{width:22px;height:22px;flex-shrink:0;accent-color:#0a2a5e}
+.confirm-card{background:#fff;border:1.5px solid #86efac;border-radius:16px;padding:18px 16px;margin-bottom:14px;font-size:14px;color:#1a1a1a;line-height:1.6}
+.confirm-card h3{font-size:18px;color:#166534;margin-bottom:10px}
+.confirm-card .fila{margin-bottom:8px}
+.confirm-card ol{padding-left:22px;margin:4px 0 10px}
+.confirm-card li{margin-bottom:3px}
+.acciones-ingreso{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.btn-accion{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;text-decoration:none;border:1.5px solid #0a2a5e;color:#0a2a5e;background:#fff;cursor:pointer}
+.btn-accion i{font-size:20px}
+.btn-accion.wa{border-color:#16a34a;color:#166534;background:#f0fdf4}
 </style>
 </head>
 <body>
@@ -189,16 +203,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 </div>
 
 <div id="screen-anotarse" class="screen">
-  <p class="section-title">Registrar rotacion</p>
+  <p class="section-title">Registrar rotación</p>
   <div id="user-card-anotarse"></div>
-  <div class="aviso">Importante: Solo agenda una rotacion si estas seguro de poder asistir. Cancelar perjudica a otros companeros.</div>
-  <div class="form-group">
-    <label>Semana de rotacion</label>
-    <div class="hint-semana"><i class="ti ti-arrows-up-down" aria-hidden="true"></i> Desliza para ver todas las fechas disponibles</div>
-    <select id="select-semana" size="4" style="height:auto;padding:0"></select>
+  <div id="anotarse-form">
+    <div class="aviso">Importante: solo agendá una rotación si estás seguro de poder asistir. Cancelar perjudica a otros compañeros.</div>
+    <div class="form-group">
+      <label>Semana de rotación</label>
+      <div class="hint-semana"><i class="ti ti-arrows-up-down" aria-hidden="true"></i> Deslizá para ver todas las fechas disponibles</div>
+      <select id="select-semana" size="5" style="height:auto;padding:0"></select>
+    </div>
+    <div id="ingreso-preview"></div>
+    <div id="anotarse-alert"></div>
+    <button class="btn-primary" id="btn-confirmar-rotacion" disabled>Confirmar rotación</button>
   </div>
-  <div id="anotarse-alert"></div>
-  <button class="btn-primary" id="btn-confirmar-rotacion">Confirmar rotacion</button>
+  <div id="anotarse-confirmacion" style="display:none"></div>
 </div>
 
 <div id="screen-actividades" class="screen">
@@ -233,10 +251,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
   <div id="rating-alert" style="margin-top:10px"></div>
   <div class="separator"></div>
   <div class="hospital-info">
-    <strong style="color:#555">Coordinador:</strong> Javier Garcia - 1127447447<br>
+    <strong style="color:#555">Coordinador:</strong> Dr. Javier García — 11 2744-7447<br>
     Hospital de Alta Complejidad del Bicentenario<br>
-    San Martin 564, Monte Grande<br>
-    Partido de Esteban Echeverria, Buenos Aires
+    San Martín 504, Monte Grande<br>
+    Partido de Esteban Echeverría, Buenos Aires
   </div>
 </div>
 
@@ -344,7 +362,7 @@ function showScreen(name){
   document.getElementById("nav-"+name).classList.add("active");
   window.scrollTo(0,0);
   if(name==="calendario") renderCalendario();
-  if(name==="anotarse") populateSemanas();
+  if(name==="anotarse"){resetAnotarse();populateSemanas();}
   if(name==="miperfil") renderMisRotaciones();
 }
 
@@ -429,6 +447,8 @@ function changeMonth(dir){
 function populateSemanas(){
   var sel=document.getElementById("select-semana");
   sel.innerHTML='<option disabled>Cargando semanas...</option>';
+  document.getElementById("ingreso-preview").innerHTML="";
+  document.getElementById("btn-confirmar-rotacion").disabled=true;
   return fetchRotaciones().then(function(){
     sel.innerHTML="";
     var grupos={};
@@ -484,7 +504,8 @@ function registrarRotacion(){
     api("addRotacion",datos)
       .then(function(data){
         if(data.status==="ok"){
-          alertEl.innerHTML='<div class="alert alert-success">Rotación registrada correctamente.</div>';
+          alertEl.innerHTML="";
+          mostrarConfirmacion({start:startKey,end:endKey,ingreso:Fechas.diaIngreso(startKey,endKey)});
           populateSemanas();
         }else if(data.status==="full"){
           alertEl.innerHTML='<div class="alert alert-error">Esa semana se acaba de completar. Elegí otra.</div>';
@@ -501,6 +522,96 @@ function registrarRotacion(){
       })
       .catch(function(e){alertEl.innerHTML='<div class="alert alert-error">No se pudo conectar. Revisá tu conexión e intentá de nuevo.</div>';});
   });
+}
+
+// ---- Información de ingreso ----
+var COORDINADOR="Dr. Javier García";
+var COORD_TEL="11 2744-7447";
+var WA_URL="https://wa.me/5491127447447";
+var MAPS_URL="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("Hospital Bicentenario, San Martín 504, Monte Grande");
+var DIRECCION="Hospital de Alta Complejidad del Bicentenario — San Martín 504, Monte Grande, Esteban Echeverría";
+
+function semanaSeleccionada(){
+  var v=document.getElementById("select-semana").value;
+  if(!v||v.indexOf("|")<0) return null;
+  var p=v.split("|");
+  return {start:p[0],end:p[1],mes:p[2],ingreso:Fechas.diaIngreso(p[0],p[1])};
+}
+
+function mostrarPreviewIngreso(){
+  var w=semanaSeleccionada();
+  var prev=document.getElementById("ingreso-preview");
+  var btn=document.getElementById("btn-confirmar-rotacion");
+  document.getElementById("anotarse-alert").innerHTML="";
+  if(!w){prev.innerHTML="";btn.disabled=true;return;}
+  var dia=Fechas.fmtDiaCorto(w.ingreso);
+  prev.innerHTML='<div class="ingreso-card"><div class="titulo">🕖 Tu ingreso: '+dia+'</div>El horario de ingreso es de <strong>7:00 a 12:00 hs</strong>. Te pedimos que organices tu viaje para llegar dentro de ese horario. ¡Gracias!'+
+    '<label class="check-ingreso"><input type="checkbox" id="check-ingreso"> Puedo ingresar el '+dia+' entre las 7 y las 12 hs</label></div>';
+  btn.disabled=true;
+  document.getElementById("check-ingreso").addEventListener("change",function(){btn.disabled=!this.checked;});
+}
+
+function htmlInfoIngreso(ingresoKey){
+  return '<div class="fila"><strong>Ingreso:</strong> '+Fechas.fmtDiaCompleto(ingresoKey)+', de 7:00 a 12:00 hs</div>'+
+    '<div class="fila"><strong>Dirección:</strong> '+DIRECCION+'</div>'+
+    '<div class="fila"><strong>Cómo ingresar:</strong><ol>'+
+      '<li>Entrá por <strong>Ingreso de Personal</strong>.</li>'+
+      '<li>Registrate y anunciate en <strong>Seguridad</strong> (al lado del comedor).</li>'+
+      '<li>Presentate como <strong>fellow de Procuración y Trasplante</strong>.</li>'+
+      '<li>Lugar de rotación: <strong>Terapia Intensiva</strong>.</li></ol></div>'+
+    '<div class="fila"><strong>Coordinador:</strong> '+COORDINADOR+' — '+COORD_TEL+'</div>'+
+    '<div class="acciones-ingreso">'+
+      '<a class="btn-accion" href="'+MAPS_URL+'" target="_blank" rel="noopener">📍 Cómo llegar</a>'+
+      '<button class="btn-accion btn-ics" data-ingreso="'+ingresoKey+'">📅 Agregar a mi calendario</button>'+
+      '<a class="btn-accion wa" href="'+WA_URL+'" target="_blank" rel="noopener">💬 WhatsApp al coordinador</a>'+
+    '</div>';
+}
+
+function mostrarConfirmacion(w){
+  document.getElementById("anotarse-form").style.display="none";
+  var c=document.getElementById("anotarse-confirmacion");
+  c.innerHTML='<div class="confirm-card"><h3>✅ ¡Listo! Tu rotación quedó registrada</h3>'+htmlInfoIngreso(w.ingreso)+'</div>'+
+    '<button class="btn-secondary" id="btn-volver-calendario">Volver al calendario</button>';
+  c.style.display="block";
+  document.getElementById("btn-volver-calendario").addEventListener("click",function(){
+    resetAnotarse();
+    showScreen("calendario");
+  });
+  window.scrollTo(0,0);
+}
+
+function resetAnotarse(){
+  document.getElementById("anotarse-confirmacion").style.display="none";
+  document.getElementById("anotarse-form").style.display="block";
+  document.getElementById("anotarse-alert").innerHTML="";
+  document.getElementById("ingreso-preview").innerHTML="";
+  document.getElementById("btn-confirmar-rotacion").disabled=true;
+}
+
+// Archivo .ics para el día de ingreso (7 a 12 hs, hora argentina = UTC-3)
+function icsEsc(s){return String(s).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\n/g,"\\n");}
+function icsFold(line){var out=[];while(line.length>60){out.push(line.slice(0,60));line=" "+line.slice(60);}out.push(line);return out.join("\r\n");}
+function descargarIcs(ingresoKey){
+  var d=ingresoKey.replace(/-/g,"");
+  var now=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d+Z$/,"Z");
+  var desc="Ingreso de 7:00 a 12:00 hs.\nCómo ingresar:\n1. Entrá por Ingreso de Personal.\n2. Registrate y anunciate en Seguridad (al lado del comedor).\n3. Presentate como fellow de Procuración y Trasplante.\n4. Lugar de rotación: Terapia Intensiva.\nCoordinador: "+COORDINADOR+" — "+COORD_TEL;
+  var lines=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//GYVRA//Procuracion//ES","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+    "BEGIN:VEVENT","UID:gyvra-"+d+"-"+Date.now()+"@gyvra-procuracion","DTSTAMP:"+now,
+    "DTSTART:"+d+"T100000Z","DTEND:"+d+"T150000Z",
+    "SUMMARY:"+icsEsc("Ingreso rotación — Hospital Bicentenario"),
+    "LOCATION:"+icsEsc("Hospital de Alta Complejidad del Bicentenario, San Martín 504, Monte Grande, Esteban Echeverría"),
+    "DESCRIPTION:"+icsEsc(desc),
+    "BEGIN:VALARM","TRIGGER:-PT12H","ACTION:DISPLAY","DESCRIPTION:"+icsEsc("Mañana ingresás a la rotación (7 a 12 hs)"),"END:VALARM",
+    "END:VEVENT","END:VCALENDAR"];
+  var ics=lines.map(icsFold).join("\r\n")+"\r\n";
+  descargarBlob(new Blob([ics],{type:"text/calendar;charset=utf-8"}),"Ingreso_rotacion_"+ingresoKey+".ics");
+}
+function descargarBlob(blob,nombre){
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.download=nombre;
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
 }
 
 function mensajeYaTiene(ini,fin){
@@ -574,7 +685,8 @@ function renderMisRotaciones(){
       var sk=String(r[COL.INICIO]).trim();
       var ek=String(r[COL.FIN]).trim();
       var activa=ek>=hoyK;
-      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header"><div><div class="week-title" style="font-size:14px">'+esc(r[COL.MES]||"")+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div>'+(activa&&!r[COL.ESTADO]?'<button class="btn-cancelar" data-sk="'+esc(sk)+'">Cancelar</button>':'')+'</div></div>';
+      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header"><div><div class="week-title" style="font-size:14px">'+esc(r[COL.MES]||"")+(activa?' · <span style="color:#16a34a">activa</span>':'')+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div>'+(activa&&!r[COL.ESTADO]?'<button class="btn-cancelar" data-sk="'+esc(sk)+'">Cancelar</button>':'')+'</div>'+
+        (activa?'<div class="confirm-card" style="border:none;margin:0;border-radius:0">'+htmlInfoIngreso(Fechas.diaIngreso(sk,ek))+'</div>':'')+'</div>';
     });
     cont.innerHTML=html;
     cont.querySelectorAll(".btn-cancelar").forEach(function(btn){
@@ -743,6 +855,11 @@ document.addEventListener("DOMContentLoaded",function(){
     }
   });
   document.getElementById("btn-confirmar-rotacion").addEventListener("click",registrarRotacion);
+  document.getElementById("select-semana").addEventListener("change",mostrarPreviewIngreso);
+  document.addEventListener("click",function(e){
+    var b=e.target.closest&&e.target.closest(".btn-ics");
+    if(b) descargarIcs(b.getAttribute("data-ingreso"));
+  });
   document.getElementById("btn-cargar-act").addEventListener("click",cargarActividades);
   document.getElementById("btn-guardar-act").addEventListener("click",guardarActividades);
   document.getElementById("btn-enviar-rating").addEventListener("click",guardarRating);
