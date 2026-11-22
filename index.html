@@ -81,7 +81,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .user-info p{font-size:15px;font-weight:600;color:#1a1a1a}
 .user-info span{font-size:12px;color:#999}
 .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
-.modal{background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:400px}
+.modal{background:#fff;border-radius:20px;padding:28px 24px;width:100%;max-width:400px;max-height:92vh;overflow-y:auto}
+.label-hint{font-weight:400;color:#999}
 .modal-logo{width:80px;height:80px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
 .modal-logo img{width:80px;height:80px;object-fit:contain}
 .modal h2{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:6px;text-align:center}
@@ -105,22 +106,57 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
     <div class="modal-logo">
       <img src="logo.png" alt="GYVRA" onerror="this.style.display='none'"/>
     </div>
-    <h2>Bienvenido a la rotacion</h2>
-    <p class="subtitulo">Procuracion y Trasplante</p>
-    <p class="hospital">Hospital Bicentenario Esteban Echeverria. Ingresa tu nombre para comenzar.</p>
+    <h2>Bienvenido a la rotación</h2>
+    <p class="subtitulo">Procuración y Trasplante</p>
+    <p class="hospital">Hospital Bicentenario Esteban Echeverría. Completá tus datos para comenzar.</p>
     <div class="form-group">
-      <label>Tu nombre completo</label>
-      <input type="text" id="input-registro-nombre" placeholder="Ej: Maria Gonzalez" autocomplete="name"/>
+      <label>Nombre y apellido *</label>
+      <input type="text" id="input-registro-nombre" placeholder="Ej: María González" autocomplete="name"/>
     </div>
     <div class="form-group">
-      <label>Tu especialidad / institucion</label>
-      <input type="text" id="input-registro-esp" placeholder="Ej: Medicina Interna - UBA"/>
+      <label>DNI * <span class="label-hint">(solo números)</span></label>
+      <input type="text" id="input-registro-dni" inputmode="numeric" maxlength="10" placeholder="Ej: 30123456"/>
     </div>
     <div class="form-group">
-      <label>Tu numero de celular</label>
-      <input type="tel" id="input-registro-cel" placeholder="Ej: 1155667788"/>
+      <label>Celular *</label>
+      <input type="tel" id="input-registro-cel" placeholder="Ej: 1155667788" autocomplete="tel"/>
     </div>
-    <button class="btn-primary" id="btn-comenzar">Comenzar rotacion</button>
+    <div class="form-group">
+      <label>Provincia *</label>
+      <select id="select-registro-prov" class="select-provincia"></select>
+    </div>
+    <div class="form-group">
+      <label>Hospital de origen *</label>
+      <input type="text" id="input-registro-hosp" placeholder="Ej: Hospital Italiano de Córdoba"/>
+    </div>
+    <div class="form-group">
+      <label>Especialidad <span class="label-hint">(opcional)</span></label>
+      <input type="text" id="input-registro-esp" placeholder="Ej: Terapia Intensiva"/>
+    </div>
+    <div id="registro-error"></div>
+    <button class="btn-primary" id="btn-comenzar">Comenzar rotación</button>
+  </div>
+</div>
+
+<div id="overlay-completar" class="overlay" style="display:none">
+  <div class="modal">
+    <h2>Completá tus datos</h2>
+    <p class="hospital" id="completar-texto">Completá tus datos para poder descargar tu constancia.</p>
+    <div class="form-group" id="grupo-completar-dni">
+      <label>DNI * <span class="label-hint">(solo números)</span></label>
+      <input type="text" id="input-completar-dni" inputmode="numeric" maxlength="10" placeholder="Ej: 30123456"/>
+    </div>
+    <div class="form-group" id="grupo-completar-prov">
+      <label>Provincia *</label>
+      <select id="select-completar-prov" class="select-provincia"></select>
+    </div>
+    <div class="form-group" id="grupo-completar-hosp">
+      <label>Hospital de origen *</label>
+      <input type="text" id="input-completar-hosp" placeholder="Ej: Hospital Italiano de Córdoba"/>
+    </div>
+    <div id="completar-error"></div>
+    <button class="btn-primary" id="btn-completar-guardar">Guardar</button>
+    <button class="btn-secondary" id="btn-completar-despues">Más tarde</button>
   </div>
 </div>
 
@@ -248,6 +284,33 @@ var currentRating = 0;
 var miNombre = "";
 var miEsp = "";
 var miCel = "";
+var miDni = "";
+var miProv = "";
+var miHosp = "";
+var misRotaciones = [];
+var PROVINCIAS = ["Buenos Aires","Ciudad Autónoma de Buenos Aires","Catamarca","Chaco","Chubut","Córdoba","Corrientes","Entre Ríos","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquén","Río Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego, Antártida e Islas del Atlántico Sur","Tucumán"];
+// Columnas de la hoja Rotaciones (0 = A)
+var COL = {NOMBRE:0,ESP:1,INICIO:2,FIN:3,MES:4,CEL:5,TS:6,DNI:7,PROV:8,HOSP:9,ID:10,ESTADO:11,INI_CONF:12,FIN_CONF:13,F_SOL:14,F_APR:15,FILE:16};
+
+function api(action,data){
+  var url=SCRIPT_URL+"?action="+action+(data!==undefined?"&data="+encodeURIComponent(JSON.stringify(data)):"");
+  return fetch(url).then(function(r){return r.json();});
+}
+function hoyKey(){return dateKey(new Date());}
+function limpiarDni(v){return String(v||"").replace(/[.\s-]/g,"");}
+function dniValido(v){return /^\d{7,8}$/.test(String(v||""));}
+function faltanDatos(){return !dniValido(miDni)||!miProv||!miHosp;}
+function llenarProvincias(sel,valor){
+  sel.innerHTML='<option value="">Elegí tu provincia</option>'+PROVINCIAS.map(function(p){return '<option'+(p===valor?' selected':'')+'>'+p+'</option>';}).join("");
+}
+function guardarLocal(){
+  localStorage.setItem("gyvra_nombre",miNombre);
+  localStorage.setItem("gyvra_esp",miEsp);
+  localStorage.setItem("gyvra_cel",miCel);
+  localStorage.setItem("gyvra_dni",miDni);
+  localStorage.setItem("gyvra_prov",miProv);
+  localStorage.setItem("gyvra_hosp",miHosp);
+}
 
 var pad=Fechas.pad, dateKey=Fechas.dateKey;
 function formatDateKey(k){if(!k)return "";var p=String(k).split("-");return p[2]+"/"+p[1];}
@@ -267,7 +330,8 @@ function fetchRotaciones(){
 function actualizarUI(){
   document.getElementById("header-user").textContent=miNombre;
   var ini=miNombre.split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
-  var card='<div class="user-card"><div class="user-avatar">'+ini+'</div><div class="user-info"><p>'+miNombre+'</p><span>'+miEsp+(miCel?' - '+miCel:'')+'</span></div></div>';
+  var detalle=[miHosp,miProv].filter(Boolean).join(" · ")||miEsp;
+  var card='<div class="user-card"><div class="user-avatar">'+esc(ini)+'</div><div class="user-info"><p>'+esc(miNombre)+'</p><span>'+esc(detalle)+(miDni?'<br>DNI '+esc(miDni):'')+'</span></div></div>';
   document.getElementById("user-card-anotarse").innerHTML=card;
   document.getElementById("user-card-actividades").innerHTML=card;
   document.getElementById("user-card-perfil").innerHTML=card;
@@ -394,6 +458,11 @@ function registrarRotacion(){
   var endKey=parts[1];
   var mesNombre=parts[2];
 
+  if(faltanDatos()){
+    abrirCompletarDatos("Para anotarte necesitamos tu DNI, provincia y hospital de origen.",registrarRotacion,true);
+    return;
+  }
+
   alertEl.innerHTML='<div class="alert alert-info">Verificando cupos...</div>';
   fetchRotaciones().then(function(){
     var ocupados=ocupadosDe(startKey);
@@ -401,52 +470,111 @@ function registrarRotacion(){
     var cupoMax = Fechas.cuposMax(ocupados.length, yearSemana);
 
     if(ocupados.length>=cupoMax){
-      alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa ('+ocupados.length+'/'+cupoMax+').</div>';
+      alertEl.innerHTML='<div class="alert alert-error">Esa semana está completa ('+ocupados.length+'/'+cupoMax+').</div>';
       return;
     }
-    var yaEstaEnEsta=ocupados.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase();});
-    if(yaEstaEnEsta.length>0){alertEl.innerHTML='<div class="alert alert-error">Ya estas anotado en esa semana.</div>';return;}
-    var yaEnOtra=rotaciones.filter(function(r){return r[0].toLowerCase()===miNombre.toLowerCase()&&String(r[2]).trim()!==startKey;});
-    if(yaEnOtra.length>0){
-      var msg="Ya tenes una rotacion en "+(yaEnOtra[0][4]||"")+" ("+formatDateKey(String(yaEnOtra[0][2]))+" al "+formatDateKey(String(yaEnOtra[0][3]))+"). Cancelala primero desde Mi perfil.";
-      alertEl.innerHTML='<div class="alert alert-error">'+msg+'</div>';
+    var hoyK=hoyKey();
+    var activa=rotaciones.filter(function(r){return mismoNombre(r[0],miNombre)&&String(r[3]).trim()>=hoyK;})[0];
+    if(activa){
+      alertEl.innerHTML='<div class="alert alert-error">'+mensajeYaTiene(activa[2],activa[3])+'</div>';
       return;
     }
     alertEl.innerHTML='<div class="alert alert-info">Guardando...</div>';
-    var row=[miNombre,miEsp,startKey,endKey,mesNombre,miCel,new Date().toISOString()];
-    fetch(SCRIPT_URL+"?action=addRotacion&data="+encodeURIComponent(JSON.stringify(row)))
-      .then(function(r){return r.json();})
+    var datos={nombre:miNombre,esp:miEsp,inicio:startKey,fin:endKey,mes:mesNombre,cel:miCel,dni:miDni,provincia:miProv,hospital:miHosp};
+    api("addRotacion",datos)
       .then(function(data){
         if(data.status==="ok"){
-          alertEl.innerHTML='<div class="alert alert-success">Rotacion registrada correctamente.</div>';
+          alertEl.innerHTML='<div class="alert alert-success">Rotación registrada correctamente.</div>';
           populateSemanas();
         }else if(data.status==="full"){
-          alertEl.innerHTML='<div class="alert alert-error">Esa semana se acaba de completar. Elegi otra.</div>';
+          alertEl.innerHTML='<div class="alert alert-error">Esa semana se acaba de completar. Elegí otra.</div>';
           populateSemanas();
         }else if(data.status==="busy"){
-          alertEl.innerHTML='<div class="alert alert-error">Hay mucha gente anotandose en este momento. Intenta de nuevo.</div>';
+          alertEl.innerHTML='<div class="alert alert-error">Hay mucha gente anotándose en este momento. Intentá de nuevo.</div>';
+        }else if(data.status==="ya_tiene"){
+          alertEl.innerHTML='<div class="alert alert-error">'+mensajeYaTiene(data.inicio,data.fin)+'</div>';
+        }else if(data.status==="cerrada"){
+          alertEl.innerHTML='<div class="alert alert-error">Esa semana no está habilitada para anotarse.</div>';
         }else{
-          alertEl.innerHTML='<div class="alert alert-error">Error al guardar.</div>';
+          alertEl.innerHTML='<div class="alert alert-error">Error al guardar. Intentá de nuevo.</div>';
         }
       })
-      .catch(function(e){alertEl.innerHTML='<div class="alert alert-error">Error: '+e.message+'</div>';});
+      .catch(function(e){alertEl.innerHTML='<div class="alert alert-error">No se pudo conectar. Revisá tu conexión e intentá de nuevo.</div>';});
   });
+}
+
+function mensajeYaTiene(ini,fin){
+  return "Ya tenés una rotación activa ("+formatDateKey(String(ini))+" al "+formatDateKey(String(fin))+"). Si querés cambiarla, cancelala primero desde Mi perfil.";
+}
+
+// ---- Completar datos (usuarios registrados antes de que se pidiera DNI/provincia/hospital) ----
+var completarCallback=null;
+function abrirCompletarDatos(texto,callback,obligatorio){
+  completarCallback=callback||null;
+  document.getElementById("completar-texto").textContent=texto||"Completá tus datos para poder descargar tu constancia.";
+  document.getElementById("grupo-completar-dni").style.display=dniValido(miDni)?"none":"block";
+  document.getElementById("grupo-completar-prov").style.display=miProv?"none":"block";
+  document.getElementById("grupo-completar-hosp").style.display=miHosp?"none":"block";
+  document.getElementById("input-completar-dni").value=miDni;
+  llenarProvincias(document.getElementById("select-completar-prov"),miProv);
+  document.getElementById("input-completar-hosp").value=miHosp;
+  document.getElementById("completar-error").innerHTML="";
+  document.getElementById("btn-completar-despues").textContent=obligatorio?"Cancelar":"Más tarde";
+  document.getElementById("overlay-completar").style.display="flex";
+}
+function cerrarCompletarDatos(){
+  document.getElementById("overlay-completar").style.display="none";
+  completarCallback=null;
+  if(typeof mostrarInstalacionSiCorresponde==="function") mostrarInstalacionSiCorresponde();
+}
+function guardarCompletarDatos(){
+  var dni=limpiarDni(document.getElementById("input-completar-dni").value);
+  var prov=document.getElementById("select-completar-prov").value;
+  var hosp=document.getElementById("input-completar-hosp").value.trim();
+  var err=document.getElementById("completar-error");
+  if(!dniValido(dni)){err.innerHTML='<div class="alert alert-error">El DNI tiene que tener 7 u 8 números, sin puntos.</div>';return;}
+  if(!prov){err.innerHTML='<div class="alert alert-error">Elegí tu provincia.</div>';return;}
+  if(!hosp){err.innerHTML='<div class="alert alert-error">Completá tu hospital de origen.</div>';return;}
+  err.innerHTML='<div class="alert alert-info">Guardando...</div>';
+  api("actualizarDatos",{nombre:miNombre,dni:dni,provincia:prov,hospital:hosp})
+    .then(function(data){
+      if(data.status==="busy"){err.innerHTML='<div class="alert alert-error">Intentá de nuevo en unos segundos.</div>';return;}
+      if(data.status!=="ok"){err.innerHTML='<div class="alert alert-error">No se pudo guardar. Revisá los datos.</div>';return;}
+      miDni=dni;miProv=prov;miHosp=hosp;
+      guardarLocal();
+      actualizarUI();
+      var cb=completarCallback;
+      cerrarCompletarDatos();
+      if(cb) cb();
+    })
+    .catch(function(){err.innerHTML='<div class="alert alert-error">No se pudo conectar. Intentá de nuevo.</div>';});
+}
+
+// ---- Mis rotaciones (filas completas, por DNI; filas viejas sin DNI, por nombre) ----
+function fetchMisRotaciones(){
+  return api("getMisRotaciones",{dni:miDni,nombre:miNombre})
+    .then(function(data){misRotaciones=(data&&data.status==="ok"&&Array.isArray(data.rows))?data.rows:[];return misRotaciones;})
+    .catch(function(){
+      // Si falla, uso los datos públicos filtrados por nombre
+      return fetchRotaciones().then(function(){misRotaciones=rotaciones.filter(function(r){return mismoNombre(r[0],miNombre);});return misRotaciones;});
+    });
 }
 
 function renderMisRotaciones(){
   var cont=document.getElementById("mis-rotaciones-lista");
   cont.innerHTML='<div class="loading">Cargando...</div>';
-  fetchRotaciones().then(function(){
-    var mias=rotaciones.filter(function(r){return r[0]&&r[0].toLowerCase()===miNombre.toLowerCase();});
+  fetchMisRotaciones().then(function(mias){
     if(!mias.length){
-      cont.innerHTML='<p style="font-size:13px;color:#999;text-align:center;padding:12px">No tenes rotaciones registradas.</p>';
+      cont.innerHTML='<p style="font-size:13px;color:#999;text-align:center;padding:12px">No tenés rotaciones registradas.</p>';
       return;
     }
+    var hoyK=hoyKey();
     var html="";
     mias.forEach(function(r){
-      var sk=String(r[2]).trim();
-      var ek=String(r[3]).trim();
-      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header" style="display:flex;justify-content:space-between;align-items:center"><div><div class="week-title" style="font-size:14px">'+(r[4]||"")+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div><button class="btn-cancelar" data-sk="'+sk+'">Cancelar</button></div></div>';
+      var sk=String(r[COL.INICIO]).trim();
+      var ek=String(r[COL.FIN]).trim();
+      var activa=ek>=hoyK;
+      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header"><div><div class="week-title" style="font-size:14px">'+esc(r[COL.MES]||"")+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div>'+(activa&&!r[COL.ESTADO]?'<button class="btn-cancelar" data-sk="'+esc(sk)+'">Cancelar</button>':'')+'</div></div>';
     });
     cont.innerHTML=html;
     cont.querySelectorAll(".btn-cancelar").forEach(function(btn){
@@ -456,18 +584,21 @@ function renderMisRotaciones(){
 }
 
 function cancelarRotacion(startKey){
-  if(!confirm("Estas seguro que queres cancelar esta rotacion? Cancelar perjudica a otros companeros.")){return;}
-  fetch(SCRIPT_URL+"?action=cancelarRotacion&data="+encodeURIComponent(JSON.stringify([miNombre,startKey])))
-    .then(function(r){return r.json();})
+  if(!confirm("¿Estás seguro que querés cancelar esta rotación? Cancelar perjudica a otros compañeros.")){return;}
+  api("cancelarRotacion",{dni:miDni,nombre:miNombre,inicio:startKey})
     .then(function(data){
       if(data.status==="ok"){
-        alert("Rotacion cancelada correctamente.");
-        fetchRotaciones().then(function(){renderMisRotaciones();renderCalendario();});
+        alert("Rotación cancelada correctamente.");
+        renderMisRotaciones();
+      }else if(data.status==="busy"){
+        alert("Intentá de nuevo en unos segundos.");
+      }else if(data.status==="no_permitido"){
+        alert("Esta rotación ya tiene una constancia solicitada y no se puede cancelar.");
       }else{
-        alert("No se encontro la rotacion.");
+        alert("No se encontró la rotación.");
       }
     })
-    .catch(function(e){alert("Error: "+e.message);});
+    .catch(function(e){alert("No se pudo conectar. Intentá de nuevo.");});
 }
 
 function cargarActividades(){
@@ -542,9 +673,11 @@ function guardarRating(){
   var comentario=document.getElementById("input-comentario").value.trim();
   var alertEl=document.getElementById("rating-alert");
   if(!currentRating){alertEl.innerHTML='<div class="alert alert-error">Selecciona una puntuacion.</div>';return;}
-  var row=["RATING",miNombre,currentRating+" estrellas",comentario,new Date().toISOString()];
-  fetch(SCRIPT_URL+"?action=addRotacion&data="+encodeURIComponent(JSON.stringify(row)))
-    .then(function(){alertEl.innerHTML='<div class="alert alert-success">Calificacion enviada. Gracias!</div>';})
+  api("addRating",{nombre:miNombre,dni:miDni,estrellas:currentRating,comentario:comentario})
+    .then(function(data){
+      if(data.status==="ok") alertEl.innerHTML='<div class="alert alert-success">Calificación enviada. ¡Gracias!</div>';
+      else alertEl.innerHTML='<div class="alert alert-error">No se pudo enviar. Intentá de nuevo.</div>';
+    })
     .catch(function(){alertEl.innerHTML='<div class="alert alert-error">Error al enviar.</div>';});
 }
 
@@ -562,26 +695,52 @@ function buildStars(){
 
 document.addEventListener("DOMContentLoaded",function(){
   buildStars();
+  llenarProvincias(document.getElementById("select-registro-prov"),"");
   document.getElementById("btn-comenzar").addEventListener("click",function(){
-    var nombre=document.getElementById("input-registro-nombre").value.trim();
-    var esp=document.getElementById("input-registro-esp").value.trim();
+    var nombre=document.getElementById("input-registro-nombre").value.trim().replace(/\s+/g," ");
+    var dni=limpiarDni(document.getElementById("input-registro-dni").value);
     var cel=document.getElementById("input-registro-cel").value.trim();
-    if(!nombre){alert("Ingresa tu nombre.");return;}
-    localStorage.setItem("gyvra_nombre",nombre);
-    localStorage.setItem("gyvra_esp",esp);
-    localStorage.setItem("gyvra_cel",cel);
-    miNombre=nombre;miEsp=esp;miCel=cel;
+    var prov=document.getElementById("select-registro-prov").value;
+    var hosp=document.getElementById("input-registro-hosp").value.trim();
+    var esp=document.getElementById("input-registro-esp").value.trim();
+    var err=document.getElementById("registro-error");
+    var falta=null;
+    if(nombre.split(" ").length<2) falta="Ingresá tu nombre y apellido.";
+    else if(!dniValido(dni)) falta="El DNI tiene que tener 7 u 8 números, sin puntos.";
+    else if(cel.replace(/\D/g,"").length<8) falta="Ingresá tu número de celular.";
+    else if(!prov) falta="Elegí tu provincia.";
+    else if(!hosp) falta="Completá tu hospital de origen.";
+    if(falta){err.innerHTML='<div class="alert alert-error">'+falta+'</div>';return;}
+    var cambioDatos=!!miNombre;
+    miNombre=nombre;miEsp=esp;miCel=cel;miDni=dni;miProv=prov;miHosp=hosp;
+    guardarLocal();
+    err.innerHTML="";
     document.getElementById("overlay-registro").style.display="none";
+    // Completa DNI/provincia/hospital en filas viejas con este nombre (no pisa datos existentes)
+    api("actualizarDatos",{nombre:miNombre,dni:miDni,provincia:miProv,hospital:miHosp}).catch(function(){});
     actualizarUI();
-    renderCalendario();
+    showScreen(cambioDatos?"miperfil":"calendario");
     populateSemanas();
+    if(typeof mostrarInstalacionSiCorresponde==="function") mostrarInstalacionSiCorresponde();
   });
+  document.getElementById("btn-completar-guardar").addEventListener("click",guardarCompletarDatos);
+  document.getElementById("btn-completar-despues").addEventListener("click",cerrarCompletarDatos);
   document.getElementById("btn-ir-anotarse").addEventListener("click",function(){showScreen("anotarse");});
   document.getElementById("btn-cambiar-nombre").addEventListener("click",function(){
-    if(confirm("Queres cambiar tus datos?")){localStorage.clear();location.reload();}
+    document.getElementById("input-registro-nombre").value=miNombre;
+    document.getElementById("input-registro-dni").value=miDni;
+    document.getElementById("input-registro-cel").value=miCel;
+    llenarProvincias(document.getElementById("select-registro-prov"),miProv);
+    document.getElementById("input-registro-hosp").value=miHosp;
+    document.getElementById("input-registro-esp").value=miEsp;
+    document.getElementById("btn-comenzar").textContent="Guardar mis datos";
+    document.getElementById("overlay-registro").style.display="flex";
   });
   document.getElementById("btn-cerrar-sesion").addEventListener("click",function(){
-    if(confirm("Cerrar sesion? Vas a tener que ingresar tus datos de nuevo.")){localStorage.clear();location.reload();}
+    if(confirm("¿Cerrar sesión? Vas a tener que ingresar tus datos de nuevo.")){
+      ["gyvra_nombre","gyvra_esp","gyvra_cel","gyvra_dni","gyvra_prov","gyvra_hosp"].forEach(function(k){localStorage.removeItem(k);});
+      location.reload();
+    }
   });
   document.getElementById("btn-confirmar-rotacion").addEventListener("click",registrarRotacion);
   document.getElementById("btn-cargar-act").addEventListener("click",cargarActividades);
@@ -596,11 +755,15 @@ document.addEventListener("DOMContentLoaded",function(){
   miNombre=localStorage.getItem("gyvra_nombre")||"";
   miEsp=localStorage.getItem("gyvra_esp")||"";
   miCel=localStorage.getItem("gyvra_cel")||"";
+  miDni=localStorage.getItem("gyvra_dni")||"";
+  miProv=localStorage.getItem("gyvra_prov")||"";
+  miHosp=localStorage.getItem("gyvra_hosp")||"";
   if(miNombre){
     document.getElementById("overlay-registro").style.display="none";
     actualizarUI();
     renderCalendario();
     populateSemanas();
+    if(faltanDatos()) abrirCompletarDatos("Completá tus datos para poder descargar tu constancia.",null,false);
   }
 });
 </script>
