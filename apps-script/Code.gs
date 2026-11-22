@@ -36,6 +36,7 @@ function doGet(e) {
     if (action === 'actualizarDatos') return actualizarDatos(d);
     if (action === 'addRating') return addRating(d);
     if (action === 'getActividades') return getActividades();
+    if (action === 'getMisActividades') return getMisActividades(d);
     if (action === 'saveActividades') {
       if (Array.isArray(d)) d = { nombre: d[0], ids: d[1], nombres: d[2], pct: d[3] };
       return saveActividades(d);
@@ -247,21 +248,50 @@ function getActividades() {
   return buildResponse(sheet.getRange(1, 1, lastRow, 5).getValues().filter(function(r){ return r[0] !== ''; }));
 }
 
+// Hoja Actividades: A nombre · B ids · C nombres · D % · E fecha (sin cambios)
+//                   F DNI · G multiorgánicos · H asistolias · I córneas (nuevas)
+var NCOLS_ACT = 9;
+
+function leerActividades() {
+  var sheet = hoja('Actividades');
+  asegurarColumnas(sheet, NCOLS_ACT);
+  var lastRow = sheet.getLastRow();
+  var data = lastRow > 0 ? sheet.getRange(1, 1, lastRow, NCOLS_ACT).getValues() : [];
+  return { sheet: sheet, data: data };
+}
+
+// Busca la fila por DNI (columna F). Si no está, una fila vieja sin DNI con ese nombre.
+function filaActividades(data, dni, nombre) {
+  dni = soloDigitos(dni);
+  var i;
+  if (dni) for (i = 0; i < data.length; i++) if (soloDigitos(data[i][5]) === dni) return i;
+  for (i = 0; i < data.length; i++) {
+    if (!soloDigitos(data[i][5]) && data[i][0] !== '' && norm(data[i][0]) === norm(nombre)) return i;
+  }
+  return -1;
+}
+
+function getMisActividades(d) {
+  var info = leerActividades();
+  var i = filaActividades(info.data, d.dni, d.nombre);
+  if (i < 0) return buildResponse({ status: 'ok', ids: '', multi: 0, asistolias: 0, corneas: 0 });
+  var r = info.data[i];
+  return buildResponse({ status: 'ok', ids: String(r[1]), multi: Number(r[6]) || 0, asistolias: Number(r[7]) || 0, corneas: Number(r[8]) || 0 });
+}
+
 function saveActividades(d) {
   var nombre = String(d.nombre || '');
+  var dni = soloDigitos(d.dni);
   return conLock(function () {
-    var sheet = hoja('Actividades');
-    var lastRow = sheet.getLastRow();
-    var found = -1;
-    if (lastRow > 0) {
-      var data = sheet.getRange(1, 1, lastRow, 1).getValues();
-      for (var i = 0; i < data.length; i++) {
-        if (norm(data[i][0]) === norm(nombre)) { found = i + 1; break; }
-      }
-    }
-    var row = [nombre, d.ids, d.nombres, d.pct + '%', ahora()];
-    if (found > 0) sheet.getRange(found, 1, 1, 5).setValues([row]);
-    else sheet.appendRow(row);
+    var info = leerActividades();
+    var i = filaActividades(info.data, dni, nombre);
+    var prev = i >= 0 ? info.data[i] : [];
+    function contador(v, anterior) { return v === undefined || v === null ? (Number(anterior) || 0) : Math.max(0, parseInt(v, 10) || 0); }
+    var row = [nombre, d.ids || '', d.nombres || '', (d.pct || 0) + '%', ahora(),
+      dni || prev[5] || '',
+      contador(d.multi, prev[6]), contador(d.asistolias, prev[7]), contador(d.corneas, prev[8])];
+    if (i >= 0) info.sheet.getRange(i + 1, 1, 1, NCOLS_ACT).setValues([row]);
+    else info.sheet.appendRow(row);
     return buildResponse({ status: 'ok' });
   });
 }
