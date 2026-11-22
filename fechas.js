@@ -39,7 +39,7 @@
   // ---------------------------------------------------------------------------
   var ULTIMO_INICIO_2026 = "2026-12-14"; // semanas 2026 con inicio <= esta fecha
   var PRIMER_LUNES_2027 = "2027-03-01";
-  var ULTIMO_SABADO_2027 = "2027-12-11";
+  var ULTIMO_DIA_2027 = "2027-12-10"; // viernes: la última rotación de 2027 termina este día
   var MAX_CUPOS = 5;
 
   var MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -57,7 +57,8 @@
 
   // Semanas que se muestran en un mes del calendario.
   // 2026 (lógica original): bloques de 7 días desde el día 1, cortados a fin de mes.
-  // 2027+: semanas lunes a sábado que tocan el mes (una semana que cruza meses aparece en ambos meses).
+  // 2027+: la clave es el lunes. La rotación dura 5 días: lunes a viernes, o martes a sábado si el lunes
+  // es feriado (ver finRotacion). Una semana que cruza meses aparece en ambos meses.
   function semanasDelMes(year, month) {
     var weeks = [];
     if (year <= 2026) {
@@ -74,8 +75,8 @@
       var dow = first.getDay();
       var cur = addDays(first, dow === 0 ? -6 : 1 - dow);
       while (cur <= last) {
-        var sab = addDays(cur, 5);
-        if (sab >= first) weeks.push({ start: dateKey(cur), end: dateKey(sab) });
+        var fin = parseKey(finRotacion(dateKey(cur)));
+        if (fin >= first) weeks.push({ start: dateKey(cur), end: dateKey(fin) });
         cur = addDays(cur, 7);
       }
     }
@@ -85,7 +86,7 @@
   // ¿Se puede anotar alguien nuevo en esta semana?
   function semanaHabilitada(startKey, endKey) {
     if (startKey < "2027-01-01") return startKey >= "2026-01-01" && startKey <= ULTIMO_INICIO_2026;
-    return startKey >= PRIMER_LUNES_2027 && endKey <= ULTIMO_SABADO_2027;
+    return startKey >= PRIMER_LUNES_2027 && endKey <= ULTIMO_DIA_2027;
   }
 
   function enReceso(key) {
@@ -119,6 +120,23 @@
     return lista;
   }
 
+  // Fin de la rotación de 2027 (5 días) a partir del lunes de la semana:
+  // viernes, o sábado si el lunes es feriado (así se completan 5 días de martes a sábado).
+  function finRotacion(lunesKey) {
+    return dateKey(addDays(parseKey(lunesKey), esFeriado(lunesKey) ? 5 : 4));
+  }
+
+  // Rango que se le muestra al rotante. 2027+: desde el día de ingreso hasta el fin de la rotación
+  // (se recalcula con la regla de 5 días, aunque la fila vieja tenga fin en sábado).
+  // 2026: las fechas de la semana tal como están.
+  function rangoRotacion(startKey, endKey) {
+    if (startKey >= "2027-01-01" && parseKey(startKey).getDay() === 1) {
+      var fin = finRotacion(startKey);
+      return { desde: diaIngreso(startKey, fin), hasta: fin };
+    }
+    return { desde: startKey, hasta: endKey || startKey };
+  }
+
   // Día de ingreso: primer día hábil (lunes a viernes, no feriado) de la semana.
   function diaIngreso(startKey, endKey) {
     var d = parseKey(startKey), fin = parseKey(endKey || startKey);
@@ -144,12 +162,12 @@
 
   var Fechas = {
     FERIADOS: FERIADOS, FERIADOS_2026: FERIADOS_2026, FERIADOS_2027: FERIADOS_2027,
-    ULTIMO_INICIO_2026: ULTIMO_INICIO_2026, PRIMER_LUNES_2027: PRIMER_LUNES_2027, ULTIMO_SABADO_2027: ULTIMO_SABADO_2027,
+    ULTIMO_INICIO_2026: ULTIMO_INICIO_2026, PRIMER_LUNES_2027: PRIMER_LUNES_2027, ULTIMO_DIA_2027: ULTIMO_DIA_2027,
     MAX_CUPOS: MAX_CUPOS, MESES: MESES, DIAS: DIAS,
     pad: pad, dateKey: dateKey, parseKey: parseKey, addDays: addDays, esKey: esKey,
     esFeriado: esFeriado, esHabil: esHabil,
     semanasDelMes: semanasDelMes, semanaHabilitada: semanaHabilitada, semanasDisponibles: semanasDisponibles,
-    enReceso: enReceso, mesConReceso: mesConReceso, diaIngreso: diaIngreso, cuposMax: cuposMax,
+    enReceso: enReceso, mesConReceso: mesConReceso, diaIngreso: diaIngreso, finRotacion: finRotacion, rangoRotacion: rangoRotacion, cuposMax: cuposMax,
     fmtCorto: fmtCorto, fmtDiaCorto: fmtDiaCorto, fmtDiaCompleto: fmtDiaCompleto, fmtLargo: fmtLargo, nombreMes: nombreMes
   };
 

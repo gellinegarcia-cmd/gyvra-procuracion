@@ -110,10 +110,10 @@ function conLock(fn) {
   try { return fn(); } finally { lock.releaseLock(); }
 }
 
-// Ventana habilitada (misma regla que fechas.js)
+// Ventana habilitada (misma regla que fechas.js). 2027: la última rotación termina el viernes 10/12/2027.
 function ventanaHabilitada(inicio, fin) {
   if (inicio < '2027-01-01') return inicio >= '2026-01-01' && inicio <= '2026-12-14';
-  return inicio >= '2027-03-01' && (fin || inicio) <= '2027-12-11';
+  return inicio >= '2027-03-01' && (fin || inicio) <= '2027-12-10';
 }
 
 // ---------------------------------------------------------------------------

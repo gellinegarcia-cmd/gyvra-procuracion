@@ -518,7 +518,7 @@ function renderCalendario(){
 
       var card=document.createElement("div");
       card.className="week-card";
-      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+Fechas.fmtCorto(week.start)+" - "+Fechas.fmtCorto(week.end)+'</div>'+(habilitada?'<div class="week-ingreso">Ingreso: '+Fechas.fmtDiaCorto(Fechas.diaIngreso(week.start,week.end))+'</div>':'')+'</div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+cupoMax+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>')+(habilitada?'':'<div class="week-cerrada">Semana fuera del periodo de inscripcion</div>');
+      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+(function(rg){return Fechas.fmtCorto(rg.desde)+" - "+Fechas.fmtCorto(rg.hasta);})(Fechas.rangoRotacion(week.start,week.end))+'</div>'+(habilitada?'<div class="week-ingreso">Ingreso: '+Fechas.fmtDiaCorto(Fechas.diaIngreso(week.start,week.end))+'</div>':'')+'</div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+cupoMax+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>')+(habilitada?'':'<div class="week-cerrada">Semana fuera del periodo de inscripcion</div>');
       container.appendChild(card);
     });
 
@@ -569,9 +569,10 @@ function populateSemanas(){
       if(mes!==mesActual){html+='<div class="semanas-mes">'+esc(mes)+'</div>';mesActual=mes;}
       var dots="";
       for(var j=0;j<max;j++) dots+='<div class="dot '+(j<n?"filled":"")+'"></div>';
+      var rg=Fechas.rangoRotacion(w.start,w.end);
       html+='<button type="button" class="semana-card'+(lleno?' llena':'')+'" role="radio" aria-checked="false"'+(lleno?' disabled aria-disabled="true"':'')+
         ' data-value="'+esc(w.start+"|"+w.end+"|"+mes)+'" data-start="'+w.start+'">'+
-        '<div class="sc-main"><div class="sc-fechas">'+Fechas.fmtCorto(w.start)+' al '+Fechas.fmtCorto(w.end)+'</div>'+
+        '<div class="sc-main"><div class="sc-fechas">'+Fechas.fmtCorto(rg.desde)+' al '+Fechas.fmtCorto(rg.hasta)+'</div>'+
         '<div class="sc-ingreso">Ingreso: '+Fechas.fmtDiaCorto(Fechas.diaIngreso(w.start,w.end))+'</div></div>'+
         '<div class="sc-cupos">'+(lleno?'<span class="tag-completa">Completa</span>':'<span class="sc-cupos-txt">'+n+'/'+max+' lugares ocupados</span>')+
         '<div class="cupos-dots">'+dots+'</div></div>'+
@@ -669,8 +670,9 @@ function mostrarPreviewIngreso(){
   document.getElementById("check-ingreso").addEventListener("change",function(){btn.disabled=!this.checked;});
 }
 
-function htmlInfoIngreso(ingresoKey){
-  return '<div class="fila"><strong>Ingreso:</strong> '+Fechas.fmtDiaCompleto(ingresoKey)+', de 7:00 a 12:00 hs</div>'+
+function htmlInfoIngreso(ingresoKey,finKey){
+  return (finKey?'<div class="fila"><strong>Rotación:</strong> del '+Fechas.fmtDiaCompleto(ingresoKey)+' al '+Fechas.fmtDiaCompleto(finKey)+'</div>':'')+
+    '<div class="fila"><strong>Ingreso:</strong> '+Fechas.fmtDiaCompleto(ingresoKey)+', de 7:00 a 12:00 hs</div>'+
     '<div class="fila"><strong>Dirección:</strong> '+DIRECCION+'</div>'+
     '<div class="fila"><strong>Cómo ingresar:</strong><ol>'+
       '<li>Entrá por <strong>Ingreso de Personal</strong>.</li>'+
@@ -701,7 +703,7 @@ function htmlFaq(){
 function mostrarConfirmacion(w){
   document.getElementById("anotarse-form").style.display="none";
   var c=document.getElementById("anotarse-confirmacion");
-  c.innerHTML='<div class="confirm-card"><h3>✅ ¡Listo! Tu rotación quedó registrada</h3>'+htmlInfoIngreso(w.ingreso)+'</div>'+htmlFaq()+
+  c.innerHTML='<div class="confirm-card"><h3>✅ ¡Listo! Tu rotación quedó registrada</h3>'+htmlInfoIngreso(w.ingreso,Fechas.rangoRotacion(w.start,w.end).hasta)+'</div>'+htmlFaq()+
     '<button class="btn-secondary" id="btn-volver-calendario">Volver al calendario</button>';
   c.style.display="block";
   document.getElementById("btn-volver-calendario").addEventListener("click",function(){
@@ -819,8 +821,9 @@ function renderMisRotaciones(){
       var sk=String(r[COL.INICIO]).trim();
       var ek=String(r[COL.FIN]).trim();
       var activa=ek>=hoyK;
-      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header"><div><div class="week-title" style="font-size:14px">'+esc(r[COL.MES]||"")+(activa?' · <span style="color:#16a34a">activa</span>':'')+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div>'+(activa&&!r[COL.ESTADO]?'<button class="btn-cancelar" data-sk="'+esc(sk)+'">Cancelar</button>':'')+'</div>'+
-        (activa?'<div class="confirm-card" style="border:none;margin:0;border-radius:0">'+htmlInfoIngreso(Fechas.diaIngreso(sk,ek))+'</div>':htmlConstancia(r))+'</div>';
+      var rg=Fechas.rangoRotacion(sk,ek);
+      html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header"><div><div class="week-title" style="font-size:14px">'+esc(r[COL.MES]||"")+(activa?' · <span style="color:#16a34a">activa</span>':'')+'</div><div class="week-dates">'+formatDateKey(rg.desde)+" al "+formatDateKey(rg.hasta)+'</div></div>'+(activa&&!r[COL.ESTADO]?'<button class="btn-cancelar" data-sk="'+esc(sk)+'">Cancelar</button>':'')+'</div>'+
+        (activa?'<div class="confirm-card" style="border:none;margin:0;border-radius:0">'+htmlInfoIngreso(rg.desde,rg.hasta)+'</div>':htmlConstancia(r))+'</div>';
     });
     cont.innerHTML=html;
     cont.querySelectorAll(".btn-cancelar").forEach(function(btn){
@@ -847,7 +850,8 @@ function constanciaPendiente(r){return rotacionTerminada(r)&&!r[COL.ESTADO];}
 function htmlConstancia(r){
   var sk=String(r[COL.INICIO]).trim(), ek=String(r[COL.FIN]).trim();
   var estado=r[COL.ESTADO];
-  var ini=r[COL.INI_CONF]||Fechas.diaIngreso(sk,ek), fin=r[COL.FIN_CONF]||ek;
+  var rg=Fechas.rangoRotacion(sk,ek);
+  var ini=r[COL.INI_CONF]||rg.desde, fin=r[COL.FIN_CONF]||rg.hasta;
   var h='<div class="constancia-box">';
   if(estado==="aprobada"){
     h+='<div class="constancia-ok">✅ Constancia aprobada</div><div style="font-size:13px;color:#555">Del '+Fechas.fmtLargo(ini)+' al '+Fechas.fmtLargo(fin)+'</div>'+
