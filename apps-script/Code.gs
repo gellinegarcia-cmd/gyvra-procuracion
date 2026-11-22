@@ -2,6 +2,7 @@
 // Copiar este archivo completo al editor de Apps Script (archivo Code.gs).
 //
 // Funciones para correr UNA sola vez desde el editor:
+//   - configurar(): crea la carpeta "GYVRA Constancias", la plantilla y el token de aprobación.
 //   - migrar(): agrega columnas/encabezados nuevos, IDs y mueve calificaciones a su hoja.
 
 var MAX_CUPOS = 5;
@@ -37,6 +38,9 @@ function doGet(e) {
     if (action === 'addRating') return addRating(d);
     if (action === 'getActividades') return getActividades();
     if (action === 'getMisActividades') return getMisActividades(d);
+    if (action === 'solicitarConstancia') return solicitarConstancia(d);
+    if (action === 'getConstancia') return getConstancia(d);
+    if (action === 'aprobar') return aprobar(p.id, p.token);
     if (action === 'saveActividades') {
       if (Array.isArray(d)) d = { nombre: d[0], ids: d[1], nombres: d[2], pct: d[3] };
       return saveActividades(d);
@@ -349,6 +353,227 @@ function migrar() {
   }
 
   Logger.log('Migración lista. Calificaciones movidas: ' + ratings.length + '. IDs generados: ' + ids + '.');
+}
+
+// ---------------------------------------------------------------------------
+// Constancias
+// ---------------------------------------------------------------------------
+var ADMIN_EMAIL = 'gellinegarcia@gmail.com';
+// URL de esta misma implementación (la que usa la app). No cambia al actualizar la versión.
+var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxiRC2R91DFl75E5rNU0wWLVG_6cJ_16RNn-HnGyOcJG-BU3eSDrznkncw3SMrf-3P7vg/exec';
+var MESES_LARGO = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+function props() { return PropertiesService.getScriptProperties(); }
+
+// "2027-08-16" -> "16 de agosto de 2027"
+function fechaLarga(key) {
+  var p = String(key).split('-');
+  return parseInt(p[2], 10) + ' de ' + MESES_LARGO[parseInt(p[1], 10) - 1] + ' de ' + p[0];
+}
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function buscarPorId(rows, id) {
+  for (var i = 0; i < rows.length; i++) if (esRotacion(rows[i]) && String(rows[i][C.ID]) === String(id) && id) return i;
+  return -1;
+}
+// "María José Pérez" -> "Pérez_María_José" (Apellido = última palabra)
+function nombreArchivo(nombre) {
+  var partes = String(nombre).trim().split(/\s+/);
+  var apellido = partes.length > 1 ? partes.pop() : partes[0];
+  var limpio = function (s) { return s.replace(/[^\wÁÉÍÓÚÜÑáéíóúüñ-]+/g, '_'); };
+  return 'Constancia_Rotacion_' + limpio(apellido) + '_' + limpio(partes.join('_'));
+}
+
+// El rotante confirma fechas y pide la constancia: guarda M, N, O, pone L = solicitada y avisa por mail.
+function solicitarConstancia(d) {
+  var inicio = String(d.inicio || '').trim(), fin = String(d.fin || '').trim();
+  if (!esFechaKey(inicio) || !esFechaKey(fin) || inicio > fin) return buildResponse({ status: 'error', message: 'Fechas inválidas' });
+  if (!dniValido(d.dni)) return buildResponse({ status: 'error', message: 'DNI inválido' });
+  var token = props().getProperty('ADMIN_TOKEN');
+  if (!token) return buildResponse({ status: 'error', message: 'Falta correr configurar()' });
+
+  var fila;
+  var res = conLock(function () {
+    var info = leerRotaciones();
+    var i = buscarPorId(info.rows, d.id);
+    if (i < 0) return buildResponse({ status: 'not_found' });
+    var r = info.rows[i];
+    var filaDni = soloDigitos(r[C.DNI]);
+    if (filaDni && filaDni !== soloDigitos(d.dni)) return buildResponse({ status: 'not_found' });
+    if (!filaDni && norm(r[C.NOMBRE]) !== norm(d.nombre)) return buildResponse({ status: 'not_found' });
+    if (r[C.FIN] >= hoyKey()) return buildResponse({ status: 'no_terminada' });
+    if (r[C.ESTADO] === 'aprobada') return buildResponse({ status: 'ya_aprobada' });
+    // Completa DNI/provincia/hospital si la fila no los tenía
+    var dni = filaDni || soloDigitos(d.dni);
+    var prov = r[C.PROV] || d.provincia || '';
+    var hosp = r[C.HOSP] || d.hospital || '';
+    info.sheet.getRange(i + 1, C.DNI + 1, 1, 3).setValues([[dni, prov, hosp]]);
+    info.sheet.getRange(i + 1, C.ESTADO + 1, 1, 4).setValues([['solicitada', inicio, fin, ahora()]]);
+    fila = { nombre: r[C.NOMBRE], dni: dni, prov: prov, hosp: hosp, cel: r[C.CEL], id: r[C.ID] };
+    return null;
+  });
+  if (res) return res;
+
+  var link = WEBAPP_URL + '?action=aprobar&id=' + encodeURIComponent(fila.id) + '&token=' + encodeURIComponent(token);
+  var html =
+    '<div style="font-family:Arial,sans-serif;font-size:15px;color:#1a1a1a;max-width:520px">' +
+    '<h2 style="color:#0a2a5e">Solicitud de constancia de rotación</h2>' +
+    '<table style="border-collapse:collapse;font-size:15px">' +
+    filaMail('Nombre', fila.nombre) + filaMail('DNI', fila.dni) + filaMail('Hospital de origen', fila.hosp) +
+    filaMail('Provincia', fila.prov) + filaMail('Celular', fila.cel) +
+    filaMail('Desde', fechaLarga(inicio)) + filaMail('Hasta', fechaLarga(fin)) +
+    '</table>' +
+    '<p style="margin:28px 0"><a href="' + link + '" style="background:#16a34a;color:#fff;text-decoration:none;padding:16px 28px;border-radius:10px;font-weight:bold;font-size:17px;display:inline-block">CONFIRMAR ROTACIÓN</a></p>' +
+    '<p style="font-size:12px;color:#888">Al confirmar se genera el PDF y el rotante lo puede descargar desde la app.</p></div>';
+  MailApp.sendEmail({ to: ADMIN_EMAIL, subject: 'Constancia de rotación — ' + fila.nombre, htmlBody: html });
+  return buildResponse({ status: 'ok' });
+}
+function filaMail(k, v) {
+  return '<tr><td style="padding:4px 14px 4px 0;color:#666">' + escHtml(k) + '</td><td style="padding:4px 0"><strong>' + escHtml(v) + '</strong></td></tr>';
+}
+
+// Link del mail: valida el token, genera el PDF y marca la constancia como aprobada.
+function aprobar(id, token) {
+  function pagina(msg) {
+    return HtmlService.createHtmlOutput('<div style="font-family:Arial,sans-serif;font-size:20px;padding:40px;text-align:center">' + msg + '</div>')
+      .setTitle('GYVRA — Constancias');
+  }
+  var adminToken = props().getProperty('ADMIN_TOKEN');
+  if (!adminToken || String(token) !== adminToken) return pagina('❌ Link inválido.');
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return pagina('Hay otra operación en curso. Volvé a tocar el botón en unos segundos.');
+  try {
+    var info = leerRotaciones();
+    var i = buscarPorId(info.rows, id);
+    if (i < 0) return pagina('❌ No se encontró la rotación (¿fue cancelada?).');
+    var r = info.rows[i];
+    if (r[C.ESTADO] === 'aprobada' && r[C.FILE_ID]) {
+      return pagina('ℹ️ La constancia de <strong>' + escHtml(r[C.NOMBRE]) + '</strong> ya estaba aprobada. No se generó de nuevo.');
+    }
+    var fileId = generarPdf(r);
+    info.sheet.getRange(i + 1, C.ESTADO + 1).setValue('aprobada');
+    info.sheet.getRange(i + 1, C.F_APROBACION + 1, 1, 2).setValues([[ahora(), fileId]]);
+    return pagina('✅ Constancia de <strong>' + escHtml(r[C.NOMBRE]) + '</strong> aprobada.<br><br><span style="font-size:15px;color:#666">Ya la puede descargar desde la app.</span>');
+  } catch (err) {
+    return pagina('❌ Error al generar la constancia: ' + escHtml(err && err.message || err));
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Copia la plantilla, reemplaza los marcadores, exporta a PDF, lo guarda en la carpeta y borra la copia.
+function generarPdf(r) {
+  var tplId = props().getProperty('TEMPLATE_ID');
+  var folderId = props().getProperty('FOLDER_ID');
+  if (!tplId || !folderId) throw new Error('Falta correr configurar()');
+  var folder = DriveApp.getFolderById(folderId);
+  var nombre = nombreArchivo(r[C.NOMBRE]);
+  var copia = DriveApp.getFileById(tplId).makeCopy(nombre, folder);
+  try {
+    var doc = DocumentApp.openById(copia.getId());
+    var body = doc.getBody();
+    var hoy = hoyKey();
+    var valores = {
+      NOMBRE: r[C.NOMBRE],
+      DNI: soloDigitos(r[C.DNI]),
+      HOSPITAL: r[C.HOSP],
+      PROVINCIA: r[C.PROV],
+      INICIO: fechaLarga(r[C.INI_CONF] || r[C.INICIO]),
+      FIN: fechaLarga(r[C.FIN_CONF] || r[C.FIN]),
+      FECHA: fechaLarga(hoy)
+    };
+    Object.keys(valores).forEach(function (k) {
+      var v = String(valores[k] == null ? '' : valores[k]).replace(/[$\\]/g, '');
+      body.replaceText('\\{\\{' + k + '\\}\\}', v);
+    });
+    doc.saveAndClose();
+    var pdf = copia.getAs(MimeType.PDF).setName(nombre + '.pdf');
+    return folder.createFile(pdf).getId();
+  } finally {
+    copia.setTrashed(true);
+  }
+}
+
+// El rotante descarga su constancia: valida DNI y devuelve el PDF en base64 (sin links públicos de Drive).
+function getConstancia(d) {
+  var info = leerRotaciones();
+  var i = buscarPorId(info.rows, d.id);
+  if (i < 0) return buildResponse({ status: 'not_found' });
+  var r = info.rows[i];
+  if (!soloDigitos(r[C.DNI]) || soloDigitos(r[C.DNI]) !== soloDigitos(d.dni)) return buildResponse({ status: 'not_found' });
+  if (r[C.ESTADO] !== 'aprobada' || !r[C.FILE_ID]) return buildResponse({ status: 'no_aprobada' });
+  var blob = DriveApp.getFileById(r[C.FILE_ID]).getBlob();
+  return buildResponse({ status: 'ok', filename: nombreArchivo(r[C.NOMBRE]) + '.pdf', base64: Utilities.base64Encode(blob.getBytes()) });
+}
+
+// ---------------------------------------------------------------------------
+// configurar() — correr UNA vez desde el editor. Crea la carpeta, la plantilla y el token.
+// ---------------------------------------------------------------------------
+function configurar() {
+  var p = props();
+  if (!p.getProperty('ADMIN_TOKEN')) p.setProperty('ADMIN_TOKEN', Utilities.getUuid().replace(/-/g, ''));
+
+  var folder = null;
+  try { if (p.getProperty('FOLDER_ID')) folder = DriveApp.getFolderById(p.getProperty('FOLDER_ID')); } catch (e) { folder = null; }
+  if (!folder) {
+    folder = DriveApp.createFolder('GYVRA Constancias');
+    p.setProperty('FOLDER_ID', folder.getId());
+  }
+
+  var tpl = null;
+  try { if (p.getProperty('TEMPLATE_ID')) tpl = DocumentApp.openById(p.getProperty('TEMPLATE_ID')); } catch (e) { tpl = null; }
+  if (!tpl) {
+    tpl = DocumentApp.create('Plantilla Constancia GYVRA');
+    armarPlantilla(tpl);
+    tpl.saveAndClose();
+    DriveApp.getFileById(tpl.getId()).moveTo(folder);
+    p.setProperty('TEMPLATE_ID', tpl.getId());
+  }
+
+  Logger.log('Listo.');
+  Logger.log('Carpeta: ' + folder.getUrl());
+  Logger.log('Plantilla (abrila y pegá tu firma): https://docs.google.com/document/d/' + p.getProperty('TEMPLATE_ID') + '/edit');
+}
+
+function armarPlantilla(doc) {
+  var body = doc.getBody();
+  body.setMarginTop(72).setMarginBottom(72).setMarginLeft(72).setMarginRight(72);
+  var J = DocumentApp.HorizontalAlignment;
+
+  function parrafo(texto, alin, negrita, tam) {
+    var par = body.appendParagraph(texto);
+    par.setAlignment(alin || J.JUSTIFY).setLineSpacing(1.5).setSpacingAfter(6);
+    var t = par.editAsText();
+    t.setFontFamily('Arial').setFontSize(tam || 12).setBold(!!negrita);
+    return par;
+  }
+  function negritas(par, marcadores) {
+    var t = par.editAsText(), s = t.getText();
+    marcadores.forEach(function (m) {
+      var i = s.indexOf(m);
+      if (i >= 0) t.setBold(i, i + m.length - 1, true);
+    });
+  }
+
+  var titulo = body.getParagraphs()[0];
+  titulo.setText('CONSTANCIA DE ROTACIÓN');
+  titulo.setAlignment(J.CENTER).setSpacingAfter(24);
+  titulo.editAsText().setFontFamily('Arial').setFontSize(16).setBold(true);
+
+  parrafo('');
+  var p1 = parrafo('Por medio de la presente se deja constancia que {{NOMBRE}}, DNI {{DNI}}, proveniente del {{HOSPITAL}}, provincia de {{PROVINCIA}}, realizó la rotación del Fellowship de Procuración y Trasplante en la Unidad de Terapia Intensiva del Hospital de Alta Complejidad del Bicentenario Esteban Echeverría, desde el {{INICIO}} hasta el {{FIN}}.');
+  negritas(p1, ['{{NOMBRE}}', '{{DNI}}', '{{HOSPITAL}}', '{{PROVINCIA}}', '{{INICIO}}', '{{FIN}}']);
+  parrafo('Se extiende la presente a pedido del interesado para ser presentada ante quien corresponda.');
+  parrafo('Monte Grande, {{FECHA}}.', J.RIGHT);
+  // Espacio para la firma
+  parrafo(''); parrafo(''); parrafo(''); parrafo('');
+  parrafo('Dr. Javier García', J.CENTER, true);
+  parrafo('Coordinador de la rotación de Fellows de Procuración y Trasplante', J.CENTER);
+  parrafo('Hospital de Alta Complejidad del Bicentenario Esteban Echeverría', J.CENTER);
 }
 
 function buildResponse(data) {

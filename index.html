@@ -138,6 +138,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .op-ctrl button{width:44px;height:44px;border-radius:12px;border:1.5px solid #0a2a5e;background:#fff;color:#0a2a5e;font-size:24px;font-weight:700;cursor:pointer;line-height:1}
 .op-ctrl button:disabled{border-color:#ddd;color:#ccc}
 .op-ctrl .num{min-width:30px;text-align:center;font-size:22px;font-weight:800;color:#0a2a5e}
+.aviso-constancia{display:flex;gap:12px;align-items:center;background:#0a2a5e;color:#fff;border-radius:14px;padding:14px 16px;margin-bottom:16px;cursor:pointer;font-size:14px;line-height:1.4}
+.aviso-constancia i{font-size:28px;color:#00c2ff;flex-shrink:0}
+.aviso-constancia strong{display:block;font-size:15px}
+.constancia-box{padding:14px 16px;border-top:1px solid #f0f0f0;font-size:14px;color:#1a1a1a;line-height:1.5}
+.constancia-box .titulo{font-weight:700;color:#0a2a5e;margin-bottom:8px}
+.constancia-box .fechas{display:flex;gap:10px;margin:10px 0}
+.constancia-box .fechas label{flex:1;font-size:12px;font-weight:600;color:#555;min-width:0}
+.constancia-box .fechas input{width:100%;margin-top:4px;padding:11px 8px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:15px;background:#fff;color:#1a1a1a}
+.constancia-espera{background:#fef9c3;color:#854d0e;border-radius:10px;padding:12px;font-weight:600}
+.constancia-ok{color:#166534;font-weight:600;margin-bottom:4px}
 .instalar-dibujo{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 18px;color:#0a2a5e}
 .instalar-dibujo i{font-size:40px}
 .instalar-dibujo .flecha{font-size:24px;color:#999}
@@ -229,6 +239,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 </div>
 
 <div id="screen-calendario" class="screen active">
+  <div id="aviso-constancia"></div>
   <div class="info-calendario">
     <i class="ti ti-info-circle" aria-hidden="true"></i>
     <div>
@@ -734,13 +745,105 @@ function renderMisRotaciones(){
       var ek=String(r[COL.FIN]).trim();
       var activa=ek>=hoyK;
       html+='<div class="week-card" style="margin-bottom:10px"><div class="week-header"><div><div class="week-title" style="font-size:14px">'+esc(r[COL.MES]||"")+(activa?' · <span style="color:#16a34a">activa</span>':'')+'</div><div class="week-dates">'+formatDateKey(sk)+" al "+formatDateKey(ek)+'</div></div>'+(activa&&!r[COL.ESTADO]?'<button class="btn-cancelar" data-sk="'+esc(sk)+'">Cancelar</button>':'')+'</div>'+
-        (activa?'<div class="confirm-card" style="border:none;margin:0;border-radius:0">'+htmlInfoIngreso(Fechas.diaIngreso(sk,ek))+'</div>':'')+'</div>';
+        (activa?'<div class="confirm-card" style="border:none;margin:0;border-radius:0">'+htmlInfoIngreso(Fechas.diaIngreso(sk,ek))+'</div>':htmlConstancia(r))+'</div>';
     });
     cont.innerHTML=html;
     cont.querySelectorAll(".btn-cancelar").forEach(function(btn){
       btn.addEventListener("click",function(){cancelarRotacion(btn.getAttribute("data-sk"));});
     });
+    cont.querySelectorAll(".btn-solicitar").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        var sk=btn.getAttribute("data-sk");
+        var box=btn.closest(".constancia-box");
+        solicitarConstancia(sk,box.querySelector(".in-ini").value,box.querySelector(".in-fin").value,box.querySelector(".constancia-msg"));
+      });
+    });
+    cont.querySelectorAll(".btn-descargar").forEach(function(btn){
+      btn.addEventListener("click",function(){descargarConstancia(btn.getAttribute("data-id"),btn);});
+    });
+    actualizarAvisoConstancia();
   });
+}
+
+// ---- Constancia de rotación ----
+function rotacionTerminada(r){return String(r[COL.FIN]).trim()<hoyKey();}
+function constanciaPendiente(r){return rotacionTerminada(r)&&!r[COL.ESTADO];}
+
+function htmlConstancia(r){
+  var sk=String(r[COL.INICIO]).trim(), ek=String(r[COL.FIN]).trim();
+  var estado=r[COL.ESTADO];
+  var ini=r[COL.INI_CONF]||Fechas.diaIngreso(sk,ek), fin=r[COL.FIN_CONF]||ek;
+  var h='<div class="constancia-box">';
+  if(estado==="aprobada"){
+    h+='<div class="constancia-ok">✅ Constancia aprobada</div><div style="font-size:13px;color:#555">Del '+Fechas.fmtLargo(ini)+' al '+Fechas.fmtLargo(fin)+'</div>'+
+      '<button class="btn-primary btn-descargar" data-id="'+esc(r[COL.ID])+'">Descargar constancia (PDF)</button>';
+  }else if(estado==="solicitada"){
+    h+='<div class="constancia-espera">⏳ Esperando confirmación del coordinador</div><div style="font-size:13px;color:#555;margin-top:8px">Fechas enviadas: del '+Fechas.fmtLargo(ini)+' al '+Fechas.fmtLargo(fin)+'</div>';
+  }else{
+    h+='<div class="titulo">Tu rotación terminó. Confirmá las fechas para pedir tu constancia</div>'+
+      '<div style="font-size:13px;color:#555">Si alguna fecha no es correcta, corregila antes de enviar.</div>'+
+      '<div class="fechas"><label>Inicio<input type="date" class="in-ini" value="'+esc(ini)+'"></label><label>Fin<input type="date" class="in-fin" value="'+esc(fin)+'"></label></div>'+
+      '<div class="constancia-msg"></div>'+
+      '<button class="btn-primary btn-solicitar" data-sk="'+esc(sk)+'">Solicitar constancia</button>';
+  }
+  return h+'</div>';
+}
+
+function solicitarConstancia(sk,ini,fin,msgEl){
+  function msg(t,tipo){if(msgEl) msgEl.innerHTML=t?'<div class="alert alert-'+(tipo||"info")+'">'+t+'</div>':"";}
+  if(!Fechas.esKey(ini)||!Fechas.esKey(fin)){msg("Completá las dos fechas.","error");return;}
+  if(ini>fin){msg("La fecha de inicio no puede ser posterior a la de fin.","error");return;}
+  if(fin>=hoyKey()){msg("La fecha de fin tiene que ser anterior a hoy.","error");return;}
+  if(faltanDatos()){
+    // Después de completar los datos, se vuelve a pedir con las mismas fechas
+    abrirCompletarDatos("Para pedir tu constancia necesitamos tu DNI, provincia y hospital de origen.",function(){solicitarConstancia(sk,ini,fin,msgEl);},true);
+    return;
+  }
+  msg("Enviando solicitud...");
+  var r=misRotaciones.filter(function(x){return String(x[COL.INICIO]).trim()===sk;})[0];
+  var conId=(r&&r[COL.ID])?Promise.resolve(r):
+    api("actualizarDatos",{nombre:miNombre,dni:miDni,provincia:miProv,hospital:miHosp}).then(fetchMisRotaciones).then(function(rows){
+      return rows.filter(function(x){return String(x[COL.INICIO]).trim()===sk;})[0];
+    });
+  conId.then(function(fila){
+    if(!fila||!fila[COL.ID]) throw new Error("sin id");
+    return api("solicitarConstancia",{id:fila[COL.ID],dni:miDni,nombre:miNombre,provincia:miProv,hospital:miHosp,inicio:ini,fin:fin});
+  }).then(function(data){
+    if(data.status==="ok"){renderMisRotaciones();return;}
+    if(data.status==="busy") msg("Intentá de nuevo en unos segundos.","error");
+    else if(data.status==="ya_aprobada") renderMisRotaciones();
+    else if(data.status==="no_terminada") msg("Tu rotación todavía no terminó.","error");
+    else if(data.status==="not_found") msg("No encontramos tu rotación con este DNI. Escribile al coordinador.","error");
+    else msg("No se pudo enviar la solicitud. Intentá de nuevo.","error");
+  }).catch(function(){msg("No se pudo conectar. Intentá de nuevo.","error");});
+}
+
+function descargarConstancia(id,btn){
+  var texto=btn.textContent;
+  btn.disabled=true;btn.textContent="Descargando...";
+  api("getConstancia",{id:id,dni:miDni})
+    .then(function(data){
+      if(data.status!=="ok") throw new Error(data.status);
+      var bin=atob(data.base64), bytes=new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+      descargarBlob(new Blob([bytes],{type:"application/pdf"}),data.filename||nombreConstancia());
+    })
+    .catch(function(){alert("No se pudo descargar la constancia. Intentá de nuevo.");})
+    .then(function(){btn.disabled=false;btn.textContent=texto;});
+}
+function nombreConstancia(){
+  var p=miNombre.trim().split(/\s+/);
+  var apellido=p.length>1?p.pop():p[0];
+  return "Constancia_Rotacion_"+apellido+"_"+p.join("_")+".pdf";
+}
+
+// Aviso arriba al abrir la app si hay una rotación terminada sin constancia pedida
+function actualizarAvisoConstancia(){
+  var el=document.getElementById("aviso-constancia");
+  var pendiente=misRotaciones.some(constanciaPendiente);
+  el.innerHTML=pendiente?'<div class="aviso-constancia"><i class="ti ti-certificate"></i><div><strong>Tu rotación terminó</strong>Confirmá las fechas para pedir tu constancia →</div></div>':"";
+  var a=el.querySelector(".aviso-constancia");
+  if(a) a.addEventListener("click",function(){showScreen("miperfil");});
 }
 
 function cancelarRotacion(startKey){
@@ -1064,6 +1167,7 @@ document.addEventListener("DOMContentLoaded",function(){
     populateSemanas();
     if(faltanDatos()) abrirCompletarDatos("Completá tus datos para poder descargar tu constancia.",null,false);
     mostrarInstalacionSiCorresponde();
+    fetchMisRotaciones().then(actualizarAvisoConstancia);
   }
   document.getElementById("btn-instalar-listo").addEventListener("click",function(){lsSet("gyvra_instalada","1");cerrarInstalar();});
   document.getElementById("btn-instalar-luego").addEventListener("click",cerrarInstalar);
