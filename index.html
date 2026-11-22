@@ -93,8 +93,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .aviso{background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#854d0e;line-height:1.5}
 .info-calendario{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#1e40af;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
 .info-calendario i{font-size:20px;flex-shrink:0;margin-top:1px}
-.hint-semana{font-size:12px;color:#999;margin-top:6px;margin-bottom:2px;display:flex;align-items:center;gap:4px}
-.hint-semana i{font-size:14px}
+.lista-semanas{margin-top:6px}
+.semanas-mes{font-size:15px;font-weight:700;color:#0a2a5e;margin:18px 2px 8px}
+.semanas-mes:first-child{margin-top:4px}
+.semana-card{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:12px 14px;margin-bottom:8px;background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;text-align:left;font-family:inherit;color:#1a1a1a;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .15s,background .15s}
+.semana-card:active{background:#f8fafc}
+.semana-card .sc-main{flex:1;min-width:0}
+.semana-card .sc-fechas{font-size:17px;font-weight:700;line-height:1.3}
+.semana-card .sc-ingreso{font-size:14px;color:#555;margin-top:2px}
+.semana-card .sc-cupos{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;max-width:42%}
+.semana-card .sc-cupos-txt{font-size:12px;color:#166534;font-weight:600;text-align:right}
+.semana-card .sc-check{width:26px;height:26px;border-radius:50%;border:2px solid #d1d5db;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:transparent}
+.semana-card.sel{border-color:#0a2a5e;background:#eef3fb;box-shadow:0 0 0 1px #0a2a5e inset}
+.semana-card.sel .sc-check{background:#0a2a5e;border-color:#0a2a5e;color:#fff}
+.semana-card.llena{background:#f3f4f6;border-color:#e5e7eb;color:#9ca3af;cursor:not-allowed}
+.semana-card.llena .sc-ingreso{color:#9ca3af}
+.semana-card.llena .dot.filled{background:#9ca3af}
+.semana-card.llena .sc-check{display:none}
+.tag-completa{font-size:12px;font-weight:700;color:#6b7280;background:#e5e7eb;border-radius:999px;padding:3px 10px}
+.semanas-vacio{font-size:14px;color:#999;text-align:center;padding:20px}
+#anotarse-form{padding-bottom:96px}
+.barra-confirmar{position:fixed;left:50%;transform:translateX(-50%);width:100%;max-width:480px;bottom:calc(60px + env(safe-area-inset-bottom));z-index:9;background:rgba(240,242,245,.97);border-top:1px solid #e0e0e0;padding:10px 16px 12px;box-shadow:0 -4px 12px rgba(0,0,0,.06)}
+.barra-confirmar .btn-primary{margin-top:0}
+.barra-confirmar .btn-primary:disabled{background:#9aa9c0;cursor:not-allowed}
+.barra-confirmar .alert{margin-bottom:10px}
 .week-ingreso{font-size:12px;color:#0a2a5e;margin-top:3px;font-weight:600}
 .receso-card{border:1.5px dashed #bfdbfe;background:#f8fbff;border-radius:14px;padding:18px 16px;margin-bottom:12px;text-align:center;color:#1e40af;font-size:14px;line-height:1.5}
 .receso-card i{font-size:28px;display:block;margin-bottom:6px}
@@ -273,12 +295,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
     <div class="aviso">Importante: solo agendá una rotación si estás seguro de poder asistir. Cancelar perjudica a otros compañeros.</div>
     <div class="form-group">
       <label>Semana de rotación</label>
-      <div class="hint-semana"><i class="ti ti-arrows-up-down" aria-hidden="true"></i> Deslizá para ver todas las fechas disponibles</div>
-      <select id="select-semana" size="5" style="height:auto;padding:0"></select>
+      <div id="lista-semanas" class="lista-semanas" role="radiogroup" aria-label="Semana de rotación"></div>
     </div>
     <div id="ingreso-preview"></div>
-    <div id="anotarse-alert"></div>
-    <button class="btn-primary" id="btn-confirmar-rotacion" disabled>Confirmar rotación</button>
+    <div class="barra-confirmar" id="barra-confirmar">
+      <div id="anotarse-alert"></div>
+      <button class="btn-primary" id="btn-confirmar-rotacion" disabled>Confirmar rotación</button>
+    </div>
   </div>
   <div id="anotarse-confirmacion" style="display:none"></div>
 </div>
@@ -521,33 +544,55 @@ function changeMonth(dir){
 }
 
 // Lista para anotarse: solo semanas habilitadas, una sola vez cada una, agrupadas por mes
+// Semana elegida: "inicio|fin|mes" (o "" si no hay ninguna)
+var semanaElegida="";
+function devolverPreview(){
+  // El panel de ingreso vuelve a su lugar (fuera de la lista) antes de redibujarla
+  var prev=document.getElementById("ingreso-preview");
+  prev.innerHTML="";
+  var barra=document.getElementById("barra-confirmar");
+  barra.parentNode.insertBefore(prev,barra);
+}
 function populateSemanas(){
-  var sel=document.getElementById("select-semana");
-  sel.innerHTML='<option disabled>Cargando semanas...</option>';
-  document.getElementById("ingreso-preview").innerHTML="";
+  var lista=document.getElementById("lista-semanas");
+  semanaElegida="";
+  devolverPreview();
+  lista.innerHTML='<div class="semanas-vacio">Cargando semanas...</div>';
   document.getElementById("btn-confirmar-rotacion").disabled=true;
   return fetchRotaciones().then(function(){
-    sel.innerHTML="";
-    var grupos={};
+    var html="",mesActual="",cuantas=0;
     Fechas.semanasDisponibles(new Date()).forEach(function(w){
       var n=ocupadosDe(w.start).length;
       var max=Fechas.cuposMax(n, parseInt(w.start.slice(0,4),10));
       var lleno=n>=max;
       var mes=Fechas.nombreMes(w.start);
-      if(!grupos[mes]){grupos[mes]=document.createElement("optgroup");grupos[mes].label=mes;sel.appendChild(grupos[mes]);}
-      var opt=document.createElement("option");
-      opt.value=w.start+"|"+w.end+"|"+mes;
-      opt.textContent=Fechas.fmtCorto(w.start)+" al "+Fechas.fmtCorto(w.end)+" · ingreso "+Fechas.fmtDiaCorto(Fechas.diaIngreso(w.start,w.end))+" · "+(lleno?"completa":n+"/"+max);
-      if(lleno) opt.disabled=true;
-      grupos[mes].appendChild(opt);
+      if(mes!==mesActual){html+='<div class="semanas-mes">'+esc(mes)+'</div>';mesActual=mes;}
+      var dots="";
+      for(var j=0;j<max;j++) dots+='<div class="dot '+(j<n?"filled":"")+'"></div>';
+      html+='<button type="button" class="semana-card'+(lleno?' llena':'')+'" role="radio" aria-checked="false"'+(lleno?' disabled aria-disabled="true"':'')+
+        ' data-value="'+esc(w.start+"|"+w.end+"|"+mes)+'" data-start="'+w.start+'">'+
+        '<div class="sc-main"><div class="sc-fechas">'+Fechas.fmtCorto(w.start)+' al '+Fechas.fmtCorto(w.end)+'</div>'+
+        '<div class="sc-ingreso">Ingreso: '+Fechas.fmtDiaCorto(Fechas.diaIngreso(w.start,w.end))+'</div></div>'+
+        '<div class="sc-cupos">'+(lleno?'<span class="tag-completa">Completa</span>':'<span class="sc-cupos-txt">'+n+'/'+max+' lugares ocupados</span>')+
+        '<div class="cupos-dots">'+dots+'</div></div>'+
+        '<span class="sc-check" aria-hidden="true">✓</span></button>';
+      cuantas++;
     });
-    if(!sel.options.length) sel.innerHTML='<option disabled>No hay semanas disponibles</option>';
+    lista.innerHTML=cuantas?html:'<div class="semanas-vacio">No hay semanas disponibles</div>';
   });
+}
+function elegirSemana(card){
+  if(!card||card.disabled) return;
+  document.querySelectorAll("#lista-semanas .semana-card.sel").forEach(function(c){c.classList.remove("sel");c.setAttribute("aria-checked","false");});
+  card.classList.add("sel");card.setAttribute("aria-checked","true");
+  semanaElegida=card.getAttribute("data-value");
+  // El horario de ingreso aparece justo debajo de la tarjeta elegida
+  card.parentNode.insertBefore(document.getElementById("ingreso-preview"),card.nextSibling);
+  mostrarPreviewIngreso();
 }
 
 function registrarRotacion(){
-  var sel=document.getElementById("select-semana");
-  var semVal=sel.value;
+  var semVal=semanaElegida;
   if(!semVal){alert("Selecciona una semana.");return;}
   var alertEl=document.getElementById("anotarse-alert");
   var parts=semVal.split("|");
@@ -605,7 +650,7 @@ var MAPS_URL="https://www.google.com/maps/search/?api=1&query="+encodeURICompone
 var DIRECCION="Hospital de Alta Complejidad del Bicentenario — San Martín 504, Monte Grande, Esteban Echeverría";
 
 function semanaSeleccionada(){
-  var v=document.getElementById("select-semana").value;
+  var v=semanaElegida;
   if(!v||v.indexOf("|")<0) return null;
   var p=v.split("|");
   return {start:p[0],end:p[1],mes:p[2],ingreso:Fechas.diaIngreso(p[0],p[1])};
@@ -670,7 +715,9 @@ function resetAnotarse(){
   document.getElementById("anotarse-confirmacion").style.display="none";
   document.getElementById("anotarse-form").style.display="block";
   document.getElementById("anotarse-alert").innerHTML="";
-  document.getElementById("ingreso-preview").innerHTML="";
+  document.querySelectorAll("#lista-semanas .semana-card.sel").forEach(function(c){c.classList.remove("sel");c.setAttribute("aria-checked","false");});
+  semanaElegida="";
+  devolverPreview();
   document.getElementById("btn-confirmar-rotacion").disabled=true;
 }
 
@@ -1171,7 +1218,13 @@ document.addEventListener("DOMContentLoaded",function(){
     }
   });
   document.getElementById("btn-confirmar-rotacion").addEventListener("click",registrarRotacion);
-  document.getElementById("select-semana").addEventListener("change",mostrarPreviewIngreso);
+  document.getElementById("lista-semanas").addEventListener("click",function(e){
+    var card=e.target.closest?e.target.closest(".semana-card"):null;
+    if(card) elegirSemana(card);
+  });
+  // La barra de "Confirmar rotación" queda justo arriba de la barra de navegación
+  var ajustarBarra=function(){var nav=document.querySelector(".nav");if(nav&&nav.offsetHeight)document.getElementById("barra-confirmar").style.bottom=nav.offsetHeight+"px";};
+  ajustarBarra();window.addEventListener("resize",ajustarBarra);
   document.addEventListener("click",function(e){
     var b=e.target.closest&&e.target.closest(".btn-ics");
     if(b) descargarIcs(b.getAttribute("data-ingreso"));
