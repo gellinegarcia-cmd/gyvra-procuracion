@@ -112,7 +112,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .acciones-ingreso{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .btn-accion{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:12px;font-size:15px;font-weight:600;text-decoration:none;border:1.5px solid #0a2a5e;color:#0a2a5e;background:#fff;cursor:pointer}
 .btn-accion i{font-size:20px}
-.btn-accion.wa{border-color:#16a34a;color:#166534;background:#f0fdf4}
+.faq{background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:16px;overflow:hidden}
+.faq-titulo{font-size:16px;font-weight:700;color:#0a2a5e;padding:14px 16px;border-bottom:1px solid #e5e7eb;background:#f8fafc}
+.faq details{border-bottom:1px solid #eef0f3}
+.faq details:last-child{border-bottom:none}
+.faq summary{list-style:none;cursor:pointer;padding:14px 44px 14px 16px;min-height:48px;font-size:15px;font-weight:600;color:#1a1a1a;position:relative;line-height:1.4;-webkit-tap-highlight-color:transparent}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:22px;font-weight:400;color:#0a2a5e}
+.faq details[open] summary::after{content:"−"}
+.faq details[open] summary{color:#0a2a5e}
+.faq .resp{padding:0 16px 14px;font-size:14px;color:#555;line-height:1.6}
 .act-hero{background:#fff;border:1px solid #e5e5e5;border-radius:18px;padding:20px 16px;margin-bottom:16px;text-align:center}
 .ring-wrap{position:relative;width:180px;height:180px;margin:0 auto 10px}
 #act-ring{transition:stroke-dasharray .5s,stroke .3s}
@@ -247,6 +256,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
       Aca podes ver los dias disponibles y reservados. Para anotarte toca el boton <strong>Anotarse</strong> abajo.
     </div>
   </div>
+  <div id="faq-calendario"></div>
   <div class="month-nav">
     <button id="btn-prev-month">&#8592;</button>
     <h2 id="month-title"></h2>
@@ -309,7 +319,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
   <div id="rating-alert" style="margin-top:10px"></div>
   <div class="separator"></div>
   <div class="hospital-info">
-    <strong style="color:#555">Coordinador:</strong> Dr. Javier García — 11 2744-7447<br>
+    <strong style="color:#555">Coordinador:</strong> Dr. Javier García<br>
     Hospital de Alta Complejidad del Bicentenario<br>
     San Martín 504, Monte Grande<br>
     Partido de Esteban Echeverría, Buenos Aires
@@ -586,7 +596,6 @@ function registrarRotacion(){
 // ---- Información de ingreso ----
 var COORDINADOR="Dr. Javier García";
 var COORD_TEL="11 2744-7447";
-var WA_URL="https://wa.me/5491127447447";
 var MAPS_URL="https://www.google.com/maps/search/?api=1&query="+encodeURIComponent("Hospital Bicentenario, San Martín 504, Monte Grande");
 var DIRECCION="Hospital de Alta Complejidad del Bicentenario — San Martín 504, Monte Grande, Esteban Echeverría";
 
@@ -618,18 +627,31 @@ function htmlInfoIngreso(ingresoKey){
       '<li>Registrate y anunciate en <strong>Seguridad</strong> (al lado del comedor).</li>'+
       '<li>Presentate como <strong>fellow de Procuración y Trasplante</strong>.</li>'+
       '<li>Lugar de rotación: <strong>Terapia Intensiva</strong>.</li></ol></div>'+
-    '<div class="fila"><strong>Coordinador:</strong> '+COORDINADOR+' — '+COORD_TEL+'</div>'+
+    '<div class="fila"><strong>Coordinador:</strong> '+COORDINADOR+' — '+COORD_TEL+' (solo para urgencias el día de tu ingreso)</div>'+
     '<div class="acciones-ingreso">'+
       '<a class="btn-accion" href="'+MAPS_URL+'" target="_blank" rel="noopener">📍 Cómo llegar</a>'+
       '<button class="btn-accion btn-ics" data-ingreso="'+ingresoKey+'">📅 Agregar a mi calendario</button>'+
-      '<a class="btn-accion wa" href="'+WA_URL+'" target="_blank" rel="noopener">💬 WhatsApp al coordinador</a>'+
     '</div>';
+}
+
+// ---- Preguntas frecuentes ----
+var FAQ=[
+  ["¿El hospital ofrece alojamiento?","Sí. Te ubicamos al llegar."],
+  ["¿El hospital provee alimentación?","Sí."],
+  ["¿Tengo que llevar ropa y ambo?","Sí, traé tu ambo y tu ropa personal."],
+  ["¿Cuál es el horario de la rotación?","El ingreso es de 7 a 12 h. Durante la rotación hay disponibilidad las 24 h para acompañar los operativos activos."],
+  ["¿Puedo cancelar mi rotación?","Sí, desde \"Mi perfil\" → Cancelar."],
+  ["¿Cómo obtengo mi constancia?","Al terminar la rotación, la app te pide confirmar las fechas y después la descargás desde \"Mi perfil\"."]
+];
+function htmlFaq(){
+  return '<div class="faq"><div class="faq-titulo">❓ Preguntas frecuentes</div>'+
+    FAQ.map(function(q){return '<details><summary>'+q[0]+'</summary><div class="resp">'+q[1]+'</div></details>';}).join('')+'</div>';
 }
 
 function mostrarConfirmacion(w){
   document.getElementById("anotarse-form").style.display="none";
   var c=document.getElementById("anotarse-confirmacion");
-  c.innerHTML='<div class="confirm-card"><h3>✅ ¡Listo! Tu rotación quedó registrada</h3>'+htmlInfoIngreso(w.ingreso)+'</div>'+
+  c.innerHTML='<div class="confirm-card"><h3>✅ ¡Listo! Tu rotación quedó registrada</h3>'+htmlInfoIngreso(w.ingreso)+'</div>'+htmlFaq()+
     '<button class="btn-secondary" id="btn-volver-calendario">Volver al calendario</button>';
   c.style.display="block";
   document.getElementById("btn-volver-calendario").addEventListener("click",function(){
@@ -1093,6 +1115,7 @@ function buildStars(){
 }
 
 document.addEventListener("DOMContentLoaded",function(){
+  document.getElementById("faq-calendario").innerHTML=htmlFaq();
   buildStars();
   llenarProvincias(document.getElementById("select-registro-prov"),"");
   document.getElementById("btn-comenzar").addEventListener("click",function(){
