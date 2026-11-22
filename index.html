@@ -92,6 +92,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
 .info-calendario i{font-size:20px;flex-shrink:0;margin-top:1px}
 .hint-semana{font-size:12px;color:#999;margin-top:6px;margin-bottom:2px;display:flex;align-items:center;gap:4px}
 .hint-semana i{font-size:14px}
+.week-ingreso{font-size:12px;color:#0a2a5e;margin-top:3px;font-weight:600}
+.receso-card{border:1.5px dashed #bfdbfe;background:#f8fbff;border-radius:14px;padding:18px 16px;margin-bottom:12px;text-align:center;color:#1e40af;font-size:14px;line-height:1.5}
+.receso-card i{font-size:28px;display:block;margin-bottom:6px}
+.week-cerrada{font-size:11px;color:#999;padding:0 16px 10px}
 </style>
 </head>
 <body>
@@ -207,6 +211,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif;background:#f
   <button class="nav-btn" id="nav-miperfil"><i class="ti ti-user"></i>Mi perfil</button>
 </div>
 
+<script src="fechas.js"></script>
 <script>
 var SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxiRC2R91DFl75E5rNU0wWLVG_6cJ_16RNn-HnGyOcJG-BU3eSDrznkncw3SMrf-3P7vg/exec";
 var MAX_CUPOS = 5;
@@ -244,60 +249,11 @@ var miNombre = "";
 var miEsp = "";
 var miCel = "";
 
-function pad(n){return n<10?"0"+n:""+n;}
-function dateKey(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
-function formatDate(d){return d.getDate()+"/"+(d.getMonth()+1);}
-function formatDateKey(k){if(!k)return "";var p=k.split("-");return p[2]+"/"+p[1];}
-
-// Semanas 2026: lunes a domingo (comportamiento original)
-// Semanas 2027+: lunes a sabado
-function getWeeksOfYear(year, month) {
-  var weeks = [];
-  if (year <= 2026) {
-    // Logica original: semanas del mes calendario
-    var d = new Date(year, month, 1);
-    while (d.getMonth() === month) {
-      var start = new Date(d);
-      var end = new Date(d);
-      end.setDate(end.getDate() + 6);
-      if (end.getMonth() !== month) end = new Date(year, month + 1, 0);
-      weeks.push({start: new Date(start), end: new Date(end)});
-      d.setDate(d.getDate() + 7);
-    }
-  } else {
-    // 2027+: semanas lunes a sabado
-    // Encontrar el primer lunes del mes (o del mes anterior si cae en ese mes)
-    var firstDay = new Date(year, month, 1);
-    var dow = firstDay.getDay(); // 0=dom,1=lun,...,6=sab
-    // Retroceder hasta el lunes anterior o igual
-    var offset = (dow === 0) ? -6 : 1 - dow;
-    var lunes = new Date(firstDay);
-    lunes.setDate(firstDay.getDate() + offset);
-
-    var lastDay = new Date(year, month + 1, 0); // ultimo dia del mes
-
-    var cur = new Date(lunes);
-    while (cur <= lastDay) {
-      var wStart = new Date(cur);
-      var wEnd = new Date(cur);
-      wEnd.setDate(wEnd.getDate() + 5); // lunes + 5 = sabado
-
-      // Solo incluir semanas que tengan al menos un dia dentro del mes
-      if (wEnd >= firstDay && wStart <= lastDay) {
-        weeks.push({start: new Date(wStart), end: new Date(wEnd)});
-      }
-      cur.setDate(cur.getDate() + 7);
-    }
-  }
-  return weeks;
-}
-
-function getCuposParaSemana(n, year) {
-  // Semanas con 6 anotados en 2026 quedan con cupo 6 (legacy)
-  // Todo lo demas usa MAX_CUPOS = 5
-  if (year <= 2026 && n >= 6) return 6;
-  return MAX_CUPOS;
-}
+var pad=Fechas.pad, dateKey=Fechas.dateKey;
+function formatDateKey(k){if(!k)return "";var p=String(k).split("-");return p[2]+"/"+p[1];}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function mismoNombre(a,b){return String(a||"").trim().toLowerCase()===String(b||"").trim().toLowerCase();}
+function ocupadosDe(startKey){return rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});}
 
 function fetchRotaciones(){
   return fetch(SCRIPT_URL+"?action=getRotaciones")
@@ -347,31 +303,52 @@ function renderCalendario(){
   container.innerHTML='<div class="loading">Cargando...</div>';
 
   fetchRotaciones().then(function(){
-    var weeks=getWeeksOfYear(currentYear,currentMonth);
+    var weeks=Fechas.semanasDelMes(currentYear,currentMonth);
+    // Reservas existentes del mes que no coinciden con ninguna semana generada (datos viejos): se muestran igual
+    var keys={};weeks.forEach(function(w){keys[w.start]=true;});
+    var mesPref=currentYear+"-"+pad(currentMonth+1)+"-";
+    rotaciones.forEach(function(r){
+      var k=String(r[2]).trim();
+      if(k.indexOf(mesPref)===0&&!keys[k]){keys[k]=true;weeks.push({start:k,end:String(r[3]).trim()||k});}
+    });
+    weeks.sort(function(a,b){return a.start<b.start?-1:1;});
+    // Solo semanas habilitadas, o fuera de ventana pero con gente ya anotada
+    var visibles=weeks.filter(function(w){return Fechas.semanaHabilitada(w.start,w.end)||ocupadosDe(w.start).length>0;});
     container.innerHTML="";
 
-    weeks.forEach(function(week,i){
-      var key=dateKey(week.start);
-      var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===key;});
+    visibles.forEach(function(week,i){
+      var key=week.start;
+      var ocupados=ocupadosDe(key);
       var n=ocupados.length;
-      var cupoMax=getCuposParaSemana(n, currentYear);
+      var cupoMax=Fechas.cuposMax(n, parseInt(key.slice(0,4),10));
       var lleno=n>=cupoMax;
+      var habilitada=Fechas.semanaHabilitada(week.start,week.end);
 
       var dots="";
       for(var j=0;j<cupoMax;j++) dots+='<div class="dot '+(j<n?"filled":"")+'" ></div>';
 
       var rows="";
       ocupados.forEach(function(r){
-        var ini=r[0].split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
-        var esMio=r[0].toLowerCase()===miNombre.toLowerCase();
-        rows+='<div class="rotante-row"><div class="avatar" style="'+(esMio?"background:#0a2a5e;color:#fff":"")+'" >'+ini+'</div><span style="font-weight:500'+(esMio?";color:#0a2a5e":"")+'" >'+r[0]+(esMio?" (yo)":"")+'</span><span style="margin-left:auto;font-size:12px;color:#999">'+(r[1]||"")+'</span></div>';
+        var ini=String(r[0]).split(" ").map(function(p){return p[0]||"";}).slice(0,2).join("").toUpperCase();
+        var esMio=mismoNombre(r[0],miNombre);
+        rows+='<div class="rotante-row"><div class="avatar" style="'+(esMio?"background:#0a2a5e;color:#fff":"")+'" >'+esc(ini)+'</div><span style="font-weight:500'+(esMio?";color:#0a2a5e":"")+'" >'+esc(r[0])+(esMio?" (yo)":"")+'</span><span style="margin-left:auto;font-size:12px;color:#999;text-align:right">'+esc(r[9]||r[1]||"")+'</span></div>';
       });
 
       var card=document.createElement("div");
       card.className="week-card";
-      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+formatDate(week.start)+" - "+formatDate(week.end)+'</div></div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+cupoMax+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>');
+      card.innerHTML='<div class="week-header"><div><div class="week-title">Semana '+(i+1)+'</div><div class="week-dates">'+Fechas.fmtCorto(week.start)+" - "+Fechas.fmtCorto(week.end)+'</div>'+(habilitada?'<div class="week-ingreso">Ingreso: '+Fechas.fmtDiaCorto(Fechas.diaIngreso(week.start,week.end))+'</div>':'')+'</div><div class="cupos-bar"><span class="cupos-count '+(lleno?"cupos-full":"cupos-ok")+'">'+n+'/'+cupoMax+'</span><div class="cupos-dots">'+dots+'</div></div></div>'+(n>0?'<div class="week-body">'+rows+'</div>':'<div style="padding:10px 16px;font-size:13px;color:#bbb">Sin rotantes anotados</div>')+(habilitada?'':'<div class="week-cerrada">Semana fuera del periodo de inscripcion</div>');
       container.appendChild(card);
     });
+
+    if(Fechas.mesConReceso(currentYear,currentMonth)){
+      var rc=document.createElement("div");
+      rc.className="receso-card";
+      var txt=(currentYear===2027&&currentMonth===11)?"<strong>Receso desde el 12/12/2027</strong><br>Fin del periodo de rotacion 2027":"<strong>Receso</strong> — la rotacion se retoma en marzo 2027";
+      rc.innerHTML='<i class="ti ti-beach" aria-hidden="true"></i>'+txt;
+      container.appendChild(rc);
+    }else if(!visibles.length){
+      container.innerHTML='<div class="loading">No hay semanas en este mes.</div>';
+    }
   });
 }
 
@@ -384,28 +361,27 @@ function changeMonth(dir){
   renderCalendario();
 }
 
+// Lista para anotarse: solo semanas habilitadas, una sola vez cada una, agrupadas por mes
 function populateSemanas(){
   var sel=document.getElementById("select-semana");
-  sel.innerHTML="";
-  var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-
-  // Generar semanas desde hoy hasta dic 2027
-  var y = anioInicial;
-  var m = mesInicial;
-  while(y < 2028) {
-    var weeks = getWeeksOfYear(y, m);
-    weeks.forEach(function(week, i){
-      // Solo mostrar semanas futuras o actuales
-      if(week.end >= hoy) {
-        var opt=document.createElement("option");
-        opt.value=dateKey(week.start)+"|"+dateKey(week.end)+"|"+months[m]+" "+y;
-        opt.textContent=months[m]+" "+y+" - Semana "+(i+1)+" ("+formatDate(week.start)+"-"+formatDate(week.end)+")";
-        sel.appendChild(opt);
-      }
+  sel.innerHTML='<option disabled>Cargando semanas...</option>';
+  return fetchRotaciones().then(function(){
+    sel.innerHTML="";
+    var grupos={};
+    Fechas.semanasDisponibles(new Date()).forEach(function(w){
+      var n=ocupadosDe(w.start).length;
+      var max=Fechas.cuposMax(n, parseInt(w.start.slice(0,4),10));
+      var lleno=n>=max;
+      var mes=Fechas.nombreMes(w.start);
+      if(!grupos[mes]){grupos[mes]=document.createElement("optgroup");grupos[mes].label=mes;sel.appendChild(grupos[mes]);}
+      var opt=document.createElement("option");
+      opt.value=w.start+"|"+w.end+"|"+mes;
+      opt.textContent=Fechas.fmtCorto(w.start)+" al "+Fechas.fmtCorto(w.end)+" · ingreso "+Fechas.fmtDiaCorto(Fechas.diaIngreso(w.start,w.end))+" · "+(lleno?"completa":n+"/"+max);
+      if(lleno) opt.disabled=true;
+      grupos[mes].appendChild(opt);
     });
-    m++;
-    if(m>11){m=0;y++;}
-  }
+    if(!sel.options.length) sel.innerHTML='<option disabled>No hay semanas disponibles</option>';
+  });
 }
 
 function registrarRotacion(){
@@ -420,9 +396,9 @@ function registrarRotacion(){
 
   alertEl.innerHTML='<div class="alert alert-info">Verificando cupos...</div>';
   fetchRotaciones().then(function(){
-    var ocupados=rotaciones.filter(function(r){return String(r[2]).trim()===startKey;});
-    var yearSemana = parseInt(startKey.split("-")[0]);
-    var cupoMax = getCuposParaSemana(ocupados.length, yearSemana);
+    var ocupados=ocupadosDe(startKey);
+    var yearSemana = parseInt(startKey.split("-")[0],10);
+    var cupoMax = Fechas.cuposMax(ocupados.length, yearSemana);
 
     if(ocupados.length>=cupoMax){
       alertEl.innerHTML='<div class="alert alert-error">Esa semana esta completa ('+ocupados.length+'/'+cupoMax+').</div>';
@@ -443,7 +419,12 @@ function registrarRotacion(){
       .then(function(data){
         if(data.status==="ok"){
           alertEl.innerHTML='<div class="alert alert-success">Rotacion registrada correctamente.</div>';
-          fetchRotaciones();
+          populateSemanas();
+        }else if(data.status==="full"){
+          alertEl.innerHTML='<div class="alert alert-error">Esa semana se acaba de completar. Elegi otra.</div>';
+          populateSemanas();
+        }else if(data.status==="busy"){
+          alertEl.innerHTML='<div class="alert alert-error">Hay mucha gente anotandose en este momento. Intenta de nuevo.</div>';
         }else{
           alertEl.innerHTML='<div class="alert alert-error">Error al guardar.</div>';
         }
